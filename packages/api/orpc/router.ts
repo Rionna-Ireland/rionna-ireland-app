@@ -5,6 +5,7 @@ import { circleRouter } from "../modules/circle/router";
 import { notificationsRouter } from "../modules/notifications/router";
 import { organizationsRouter } from "../modules/organizations/router";
 import { paymentsRouter } from "../modules/payments/router";
+import { horsesPublicRouter } from "../modules/racing/horses/public-router";
 import { usersRouter } from "../modules/users/router";
 import { publicProcedure } from "./procedures";
 
@@ -15,6 +16,7 @@ export const router = publicProcedure.router({
 	users: usersRouter,
 	payments: paymentsRouter,
 	notifications: notificationsRouter,
+	horses: horsesPublicRouter,
 });
 
 export type ApiRouterClient = RouterClient<typeof router>;
