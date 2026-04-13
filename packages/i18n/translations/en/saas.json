@@ -1,6 +1,7 @@
 {
 	"admin": {
 		"menu": {
+			"news": "News",
 			"organizations": "Organizations",
 			"users": "Users",
 			"settings": "Settings"
@@ -77,6 +78,57 @@
 			"membersCount": "{count} {count, plural, one {member} other {members}}",
 			"search": "Search for an organization...",
 			"title": "Manage organizations"
+		},
+		"news": {
+			"title": "News Posts",
+			"newPost": "New Post",
+			"loading": "Loading news posts...",
+			"noResults": "No news posts found.",
+			"columns": {
+				"title": "Title",
+				"author": "Author",
+				"status": "Status",
+				"publishedAt": "Published",
+				"notificationSent": "Notified"
+			},
+			"status": {
+				"draft": "Draft",
+				"published": "Published"
+			},
+			"filter": {
+				"all": "All",
+				"draft": "Drafts",
+				"published": "Published"
+			},
+			"form": {
+				"createTitle": "Create news post",
+				"editTitle": "Edit news post",
+				"titleLabel": "Title",
+				"subtitleLabel": "Subtitle",
+				"slugLabel": "Slug",
+				"featuredImage": "Featured image",
+				"uploadImage": "Upload image",
+				"content": "Content",
+				"publishControls": "Publish controls",
+				"saveDraft": "Save as Draft",
+				"publish": "Publish",
+				"notifyMembers": "Notify members on publish",
+				"confirmPublishNotify": "This will send a push notification to all members. Publish and notify?",
+				"confirmPublishNotifyTitle": "Publish and notify",
+				"notifications": {
+					"createSuccess": "News post has been created.",
+					"updateSuccess": "News post has been updated.",
+					"deleteSuccess": "News post has been deleted.",
+					"error": "Could not save the news post. Please try again.",
+					"deleteError": "Could not delete the news post. Please try again."
+				},
+				"backToList": "Back to news"
+			},
+			"confirmDelete": {
+				"title": "Delete news post",
+				"message": "Are you sure you want to delete this news post? This action cannot be undone.",
+				"confirm": "Delete"
+			}
 		},
 		"title": "Administration",
 		"users": {

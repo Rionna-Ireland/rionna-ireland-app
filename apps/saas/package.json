@@ -52,6 +52,7 @@
 		"next": "^16.2.2",
 		"next-intl": "catalog:",
 		"next-themes": "catalog:",
+		"novel": "^1.0.2",
 		"nprogress": "catalog:",
 		"nuqs": "catalog:",
 		"oslo": "catalog:",
