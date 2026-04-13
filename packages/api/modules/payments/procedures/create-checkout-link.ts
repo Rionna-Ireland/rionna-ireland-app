@@ -10,7 +10,6 @@ import {
 } from "@repo/payments";
 import { z } from "zod";
 
-import { verifyOrganizationMembership } from "../../organizations/lib/membership";
 import { localeMiddleware } from "../../../orpc/middleware/locale-middleware";
 import { protectedProcedure } from "../../../orpc/procedures";
 
@@ -37,14 +36,8 @@ export const createCheckoutLink = protectedProcedure
 			input: { planId, redirectUrl, type, interval, organizationId },
 			context: { user },
 		}) => {
-			if (organizationId) {
-				const membership = await verifyOrganizationMembership(organizationId, user.id);
-
-				if (!membership) {
-					throw new ORPCError("FORBIDDEN");
-				}
-			}
-
+			// Checkout happens before the webhook creates the Member row, so a
+			// pre-existing org membership cannot be required here.
 			const customerId = await getCustomerIdFromEntity({
 				userId: user.id,
 			});

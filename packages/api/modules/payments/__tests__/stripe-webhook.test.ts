@@ -47,8 +47,10 @@ const {
 	mockStripeEventLogCreate,
 	mockMemberFindFirst,
 	mockMemberCreate,
+	mockMemberUpsert,
 	mockMemberFindMany,
 	mockPurchaseCreate,
+	mockPurchaseUpsert,
 	mockPurchaseUpdateMany,
 	mockPurchaseFindFirst,
 	mockPurchaseDelete,
@@ -65,15 +67,19 @@ const {
 } = vi.hoisted(() => {
 	const mockMemberFindFirst = vi.fn();
 	const mockMemberCreate = vi.fn();
+	const mockMemberUpsert = vi.fn();
 	const mockPurchaseCreate = vi.fn();
+	const mockPurchaseUpsert = vi.fn();
 	const mockTransaction = vi.fn();
 
 	return {
 		mockStripeEventLogCreate: vi.fn(),
 		mockMemberFindFirst,
 		mockMemberCreate,
+		mockMemberUpsert,
 		mockMemberFindMany: vi.fn(),
 		mockPurchaseCreate,
+		mockPurchaseUpsert,
 		mockPurchaseUpdateMany: vi.fn(),
 		mockPurchaseFindFirst: vi.fn(),
 		mockPurchaseDelete: vi.fn(),
@@ -96,10 +102,12 @@ vi.mock("@repo/database", () => ({
 		member: {
 			findFirst: mockMemberFindFirst,
 			create: mockMemberCreate,
+			upsert: mockMemberUpsert,
 			findMany: mockMemberFindMany,
 		},
 		purchase: {
 			create: mockPurchaseCreate,
+			upsert: mockPurchaseUpsert,
 			updateMany: mockPurchaseUpdateMany,
 			findFirst: mockPurchaseFindFirst,
 			delete: mockPurchaseDelete,
@@ -286,24 +294,25 @@ describe("handleSubscriptionCreated", () => {
 		// that has the same shape as the prisma client subset used in the handler
 		mockTransaction.mockImplementation(async (cb: (tx: unknown) => unknown) => {
 			const tx = {
-				purchase: { create: mockPurchaseCreate },
-				member: { findFirst: mockMemberFindFirst, create: mockMemberCreate },
+				purchase: { upsert: mockPurchaseUpsert },
+				member: { upsert: mockMemberUpsert },
 			};
-			mockMemberFindFirst.mockResolvedValue(existingMember);
+			mockMemberUpsert.mockResolvedValue(
+				existingMember ?? {
+					id: "member_1",
+					userId: "user_test_789",
+					organizationId: "org_test_abc",
+					role: "member",
+					circleMemberId: null,
+				},
+			);
 			return cb(tx);
 		});
 	}
 
 	it("creates a Purchase row via transaction with correct fields", async () => {
 		setupTransaction(null);
-		mockMemberCreate.mockResolvedValue({
-			id: "member_1",
-			userId: "user_test_789",
-			organizationId: "org_test_abc",
-			role: "member",
-			circleMemberId: null,
-		});
-		mockPurchaseCreate.mockResolvedValue({ id: "purchase_1" });
+		mockPurchaseUpsert.mockResolvedValue({ id: "purchase_1" });
 		mockSetCustomerIdToEntity.mockResolvedValue(undefined);
 		mockProvisionCircleMember.mockResolvedValue(undefined);
 
@@ -315,9 +324,18 @@ describe("handleSubscriptionCreated", () => {
 
 		await handleSubscriptionCreated(event);
 
-		expect(mockPurchaseCreate).toHaveBeenCalledWith({
-			data: {
+		expect(mockPurchaseUpsert).toHaveBeenCalledWith({
+			where: { subscriptionId: "sub_test_123" },
+			create: {
 				subscriptionId: "sub_test_123",
+				organizationId: "org_test_abc",
+				userId: "user_test_789",
+				customerId: "cus_test_456",
+				type: "SUBSCRIPTION",
+				priceId: "price_test_def",
+				status: "active",
+			},
+			update: {
 				organizationId: "org_test_abc",
 				userId: "user_test_789",
 				customerId: "cus_test_456",
@@ -330,14 +348,7 @@ describe("handleSubscriptionCreated", () => {
 
 	it("creates a Member row when userId and organizationId are present", async () => {
 		setupTransaction(null);
-		mockMemberCreate.mockResolvedValue({
-			id: "member_1",
-			userId: "user_test_789",
-			organizationId: "org_test_abc",
-			role: "member",
-			circleMemberId: null,
-		});
-		mockPurchaseCreate.mockResolvedValue({ id: "purchase_1" });
+		mockPurchaseUpsert.mockResolvedValue({ id: "purchase_1" });
 		mockSetCustomerIdToEntity.mockResolvedValue(undefined);
 		mockProvisionCircleMember.mockResolvedValue(undefined);
 
@@ -349,8 +360,15 @@ describe("handleSubscriptionCreated", () => {
 
 		await handleSubscriptionCreated(event);
 
-		expect(mockMemberCreate).toHaveBeenCalledWith({
-			data: {
+		expect(mockMemberUpsert).toHaveBeenCalledWith({
+			where: {
+				organizationId_userId: {
+					organizationId: "org_test_abc",
+					userId: "user_test_789",
+				},
+			},
+			update: {},
+			create: {
 				userId: "user_test_789",
 				organizationId: "org_test_abc",
 				role: "member",
@@ -368,7 +386,7 @@ describe("handleSubscriptionCreated", () => {
 			circleMemberId: null,
 		};
 		setupTransaction(existingMember);
-		mockPurchaseCreate.mockResolvedValue({ id: "purchase_1" });
+		mockPurchaseUpsert.mockResolvedValue({ id: "purchase_1" });
 		mockSetCustomerIdToEntity.mockResolvedValue(undefined);
 		mockProvisionCircleMember.mockResolvedValue(undefined);
 
@@ -380,18 +398,12 @@ describe("handleSubscriptionCreated", () => {
 
 		await handleSubscriptionCreated(event);
 
-		expect(mockMemberCreate).not.toHaveBeenCalled();
+		expect(mockMemberUpsert).toHaveBeenCalledOnce();
 	});
 
 	it("triggers Circle provisioning for new member without circleMemberId", async () => {
 		setupTransaction(null);
-		mockMemberCreate.mockResolvedValue({
-			id: "member_1",
-			userId: "user_test_789",
-			organizationId: "org_test_abc",
-			circleMemberId: null,
-		});
-		mockPurchaseCreate.mockResolvedValue({ id: "purchase_1" });
+		mockPurchaseUpsert.mockResolvedValue({ id: "purchase_1" });
 		mockSetCustomerIdToEntity.mockResolvedValue(undefined);
 		mockProvisionCircleMember.mockResolvedValue(undefined);
 
@@ -421,7 +433,7 @@ describe("handleSubscriptionCreated", () => {
 			circleMemberId: "circle_existing_123",
 		};
 		setupTransaction(existingMember);
-		mockPurchaseCreate.mockResolvedValue({ id: "purchase_1" });
+		mockPurchaseUpsert.mockResolvedValue({ id: "purchase_1" });
 		mockSetCustomerIdToEntity.mockResolvedValue(undefined);
 
 		const event = makeStripeEvent({
@@ -451,13 +463,7 @@ describe("handleSubscriptionCreated", () => {
 
 	it("sets customer ID on entity after transaction", async () => {
 		setupTransaction(null);
-		mockMemberCreate.mockResolvedValue({
-			id: "member_1",
-			userId: "user_test_789",
-			organizationId: "org_test_abc",
-			circleMemberId: null,
-		});
-		mockPurchaseCreate.mockResolvedValue({ id: "purchase_1" });
+		mockPurchaseUpsert.mockResolvedValue({ id: "purchase_1" });
 		mockSetCustomerIdToEntity.mockResolvedValue(undefined);
 		mockProvisionCircleMember.mockResolvedValue(undefined);
 
@@ -470,7 +476,6 @@ describe("handleSubscriptionCreated", () => {
 		await handleSubscriptionCreated(event);
 
 		expect(mockSetCustomerIdToEntity).toHaveBeenCalledWith("cus_test_456", {
-			organizationId: "org_test_abc",
 			userId: "user_test_789",
 		});
 	});

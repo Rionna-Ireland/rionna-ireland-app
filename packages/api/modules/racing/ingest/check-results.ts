@@ -84,19 +84,19 @@ export async function checkForResults(
           );
         } catch (error) {
           try {
-            await db.raceEntry.update({
-              where: { id: raceEntry.id },
-              data: {
-                status: raceEntry.status,
-                finishingPosition: raceEntry.finishingPosition,
-                beatenLengths: raceEntry.beatenLengths,
-                ratingAchieved: raceEntry.ratingAchieved,
-                timeformComment: raceEntry.timeformComment,
-                performanceRating: raceEntry.performanceRating,
-                starRating: raceEntry.starRating,
-                notifiedStates: raceEntry.notifiedStates,
-              },
-            });
+	      await db.raceEntry.update({
+	        where: { id: raceEntry.id },
+	        data: {
+	          status: raceEntry.status,
+	          finishingPosition: raceEntry.finishingPosition,
+	          beatenLengths: raceEntry.beatenLengths,
+	          ratingAchieved: raceEntry.ratingAchieved,
+	          timeformComment: raceEntry.timeformComment,
+	          performanceRating: raceEntry.performanceRating,
+	          starRating: raceEntry.starRating,
+	          notifiedStates: (raceEntry.notifiedStates as string[] | null) ?? [],
+	        },
+	      });
 
             if (horseSnapshot) {
               await db.horse.update({

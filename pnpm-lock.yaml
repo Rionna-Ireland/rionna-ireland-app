@@ -1198,6 +1198,9 @@ importers:
       prisma-zod-generator:
         specifier: 'catalog:'
         version: 2.1.4(magicast@0.3.5)(prisma@7.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(magicast@0.3.5)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@6.0.2))(typescript@6.0.2)(zod@4.3.6)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
 
   packages/i18n:
     dependencies:
@@ -30733,7 +30736,7 @@ snapshots:
 
   tsx@4.21.0:
     dependencies:
-      esbuild: 0.27.3
+      esbuild: 0.27.4
       get-tsconfig: 4.13.0
     optionalDependencies:
       fsevents: 2.3.3
