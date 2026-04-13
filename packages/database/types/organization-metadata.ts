@@ -5,7 +5,7 @@ export interface OrganizationMetadata {
 		fontFamily?: string;
 	};
 	racing?: {
-		provider: "timeform" | "racing_api" | "manual";
+		provider: "timeform" | "racing_api" | "manual" | "mock";
 		providerConfig?: {
 			subscriptionTier?: "core" | "standard" | "premium";
 		};

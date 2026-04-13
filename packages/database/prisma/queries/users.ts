@@ -133,10 +133,9 @@ export async function createUserAccount({
 }
 
 export async function updateUser(user: Partial<z.infer<typeof UserSchema>> & { id: string }) {
+	const { id, ...data } = user;
 	return await db.user.update({
-		where: {
-			id: user.id,
-		},
-		data: user,
+		where: { id },
+		data: data as Parameters<typeof db.user.update>[0]["data"],
 	});
 }
