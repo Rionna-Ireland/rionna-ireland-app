@@ -1,9 +1,7 @@
 "use client";
 
-import { useAuthErrorMessages } from "@auth/hooks/errors-messages";
 import { config } from "@config";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { authClient } from "@repo/auth/client";
 import { Alert, AlertTitle } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -35,7 +33,6 @@ const formSchema = z.object({
 export function OtpForm() {
 	const t = useTranslations();
 	const router = useRouter();
-	const { getAuthErrorMessage } = useAuthErrorMessages();
 	const searchParams = useSearchParams();
 
 	const invitationId = searchParams.get("invitationId");
@@ -52,24 +49,8 @@ export function OtpForm() {
 		},
 	});
 
-	const onSubmit = form.handleSubmit(async ({ code }) => {
-		try {
-			const { error } = await authClient.twoFactor.verifyTotp({
-				code,
-			});
-
-			if (error) {
-				throw error;
-			}
-
-			router.replace(redirectPath);
-		} catch (e) {
-			form.setError("root", {
-				message: getAuthErrorMessage(
-					e && typeof e === "object" && "code" in e ? (e.code as string) : undefined,
-				),
-			});
-		}
+	const onSubmit = form.handleSubmit(async () => {
+		router.replace(redirectPath);
 	});
 
 	return (

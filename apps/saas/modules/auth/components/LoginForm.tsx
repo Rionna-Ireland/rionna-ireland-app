@@ -18,7 +18,6 @@ import {
 	ArrowRightIcon,
 	EyeIcon,
 	EyeOffIcon,
-	KeyIcon,
 	MailboxIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -29,10 +28,8 @@ import { useForm } from "react-hook-form";
 import { withQuery } from "ufo";
 import { z } from "zod";
 
-import { type OAuthProvider, oAuthProviders } from "../constants/oauth-providers";
 import { useSession } from "../hooks/use-session";
 import { LoginModeSwitch } from "./LoginModeSwitch";
-import { SocialSigninButton } from "./SocialSigninButton";
 
 const formSchema = z.union([
 	z.object({
@@ -119,20 +116,6 @@ export function LoginForm() {
 			});
 		}
 	});
-
-	const signInWithPasskey = async () => {
-		try {
-			await authClient.signIn.passkey();
-
-			router.replace(redirectPath);
-		} catch (e) {
-			form.setError("root", {
-				message: getAuthErrorMessage(
-					e && typeof e === "object" && "code" in e ? (e.code as string) : undefined,
-				),
-			});
-		}
-	};
 
 	const signinMode = form.watch("mode");
 
@@ -239,39 +222,6 @@ export function LoginForm() {
 						</form>
 					</Form>
 
-					{(authConfig.enablePasskeys ||
-						(authConfig.enableSignup && authConfig.enableSocialLogin)) && (
-						<>
-							<div className="my-6 h-4 relative">
-								<hr className="top-2 relative" />
-								<p className="top-0 h-4 px-2 font-medium text-sm leading-tight absolute left-1/2 mx-auto inline-block -translate-x-1/2 bg-card text-center text-foreground/60">
-									{t("auth.login.continueWith")}
-								</p>
-							</div>
-
-							<div className="gap-2 sm:grid-cols-2 grid grid-cols-1 items-stretch">
-								{authConfig.enableSignup &&
-									authConfig.enableSocialLogin &&
-									Object.keys(oAuthProviders).map((providerId) => (
-										<SocialSigninButton
-											key={providerId}
-											provider={providerId as OAuthProvider}
-										/>
-									))}
-
-								{authConfig.enablePasskeys && (
-									<Button
-										variant="secondary"
-										className="sm:col-span-2 w-full"
-										onClick={() => signInWithPasskey()}
-									>
-										<KeyIcon className="mr-1.5 size-4 text-primary" />
-										{t("auth.login.loginWithPasskey")}
-									</Button>
-								)}
-							</div>
-						</>
-					)}
 
 					{authConfig.enableSignup && (
 						<div className="mt-6 text-sm text-center">

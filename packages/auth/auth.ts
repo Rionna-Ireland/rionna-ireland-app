@@ -1,4 +1,3 @@
-import { passkey } from "@better-auth/passkey";
 import {
 	db,
 	getInvitationById,
@@ -16,12 +15,11 @@ import { getBaseUrl } from "@repo/utils";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { createAuthMiddleware } from "better-auth/api";
-import { admin, magicLink, openAPI, organization, twoFactor, username } from "better-auth/plugins";
+import { admin, magicLink, openAPI, organization } from "better-auth/plugins";
 import { parse as parseCookies } from "cookie";
 
 import { config } from "./config";
 import { updateSeatsInOrganizationSubscription } from "./lib/organization";
-import { invitationOnlyPlugin } from "./plugins/invitation-only";
 
 const getLocaleFromRequest = (request?: Request) => {
 	const cookies = parseCookies(request?.headers.get("cookie") ?? "");
@@ -80,7 +78,7 @@ export const auth = betterAuth({
 	account: {
 		accountLinking: {
 			enabled: true,
-			trustedProviders: ["google", "github"],
+			trustedProviders: [],
 		},
 	},
 	hooks: {
@@ -209,24 +207,10 @@ export const auth = betterAuth({
 			});
 		},
 	},
-	socialProviders: {
-		google: {
-			clientId: process.env.GOOGLE_CLIENT_ID as string,
-			clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-			scope: ["email", "profile"],
-		},
-		github: {
-			clientId: process.env.GITHUB_CLIENT_ID as string,
-			clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-			scope: ["user:email"],
-		},
-	},
 	plugins: [
-		username(),
 		admin(),
-		passkey(),
 		magicLink({
-			disableSignUp: false,
+			disableSignUp: true,
 			sendMagicLink: async ({ email, url }, ctx) => {
 				const request = ctx?.request as Request;
 
@@ -266,8 +250,6 @@ export const auth = betterAuth({
 			},
 		}),
 		openAPI(),
-		invitationOnlyPlugin(),
-		twoFactor(),
 	],
 	onAPIError: {
 		onError(error, ctx) {

@@ -43,3 +43,7 @@ dist/
 .react-email/
 .content-collections/
 .prisma-zod-generator-manifest.json
+
+.cursor/
+.agents/
+.claude/

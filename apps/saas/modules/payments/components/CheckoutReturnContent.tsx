@@ -29,14 +29,14 @@ export function CheckoutReturnContent({ organizationId }: { organizationId?: str
 	useEffect(() => {
 		if (activePlan) {
 			setPolling(false);
-			router.replace("/");
+			router.replace("/onboarding");
 		}
 	}, [activePlan, router]);
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			setPolling(false);
-			router.replace("/choose-plan");
+			router.replace("/subscribe");
 		}, MAX_WAIT_MS);
 
 		return () => clearTimeout(timer);

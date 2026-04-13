@@ -1,51 +1,65 @@
 @layer base {
 	:root {
-		--border: var(--color-stone-200);
-		--input: var(--color-stone-200);
-		--ring: var(--color-stone-400);
-		--background: var(--color-stone-50);
-		--foreground: var(--color-stone-950);
-		--primary: var(--color-stone-900);
-		--primary-foreground: var(--color-white);
-		--secondary: var(--color-stone-100);
-		--secondary-foreground: var(--color-stone-900);
+		/* Rionna brand palette */
+		--rionna-blue-100: #DAEDF3;
+		--rionna-blue-300: #B9D8E1;
+		--rionna-blue-700: #374B6C;
+		--rionna-blue-950: #172741;
+		--rionna-beige: #EEEADF;
+		--rionna-green-100: #D4DCCE;
+		--rionna-green-300: #A6B999;
+		--rionna-green-950: #043F29;
+		--rionna-pink-100: #F2D6F4;
+		--rionna-pink-300: #CCA1D0;
+		--rionna-pink-700: #57385A;
+		--rionna-pink-950: #3A243C;
+
+		--border: var(--rionna-blue-300);
+		--input: var(--rionna-blue-300);
+		--ring: var(--rionna-blue-700);
+		--background: #FFFFFF;
+		--foreground: #000000;
+		--primary: var(--rionna-blue-700);
+		--primary-foreground: #FFFFFF;
+		--secondary: var(--rionna-blue-100);
+		--secondary-foreground: #000000;
 		--destructive: var(--color-red-700);
-		--destructive-foreground: var(--color-white);
-		--success: var(--color-emerald-700);
-		--success-foreground: var(--color-white);
-		--muted: var(--color-stone-100);
-		--muted-foreground: var(--color-stone-500);
-		--accent: var(--color-stone-100);
-		--accent-foreground: var(--color-stone-900);
-		--popover: var(--color-white);
-		--popover-foreground: var(--color-stone-950);
-		--card: var(--color-white);
-		--card-foreground: var(--color-stone-950);
+		--destructive-foreground: #FFFFFF;
+		--success: var(--rionna-green-950);
+		--success-foreground: #FFFFFF;
+		--muted: var(--rionna-beige);
+		--muted-foreground: var(--rionna-blue-700);
+		--accent: var(--rionna-green-100);
+		--accent-foreground: #000000;
+		--popover: #FFFFFF;
+		--popover-foreground: #000000;
+		--card: #FFFFFF;
+		--card-foreground: #000000;
 		--radius: 0.75rem;
 	}
 
 	.dark {
-		--border: var(--color-stone-800);
-		--input: var(--color-stone-800);
-		--ring: var(--color-stone-500);
-		--background: var(--color-stone-950);
-		--foreground: var(--color-white);
-		--primary: var(--color-white);
-		--primary-foreground: var(--color-stone-900);
-		--secondary: var(--color-stone-800);
-		--secondary-foreground: var(--color-white);
+		--border: var(--rionna-blue-950);
+		--input: var(--rionna-blue-950);
+		--ring: var(--rionna-blue-300);
+		--background: var(--rionna-blue-950);
+		--foreground: #FFFFFF;
+		--primary: var(--rionna-blue-300);
+		--primary-foreground: var(--rionna-blue-950);
+		--secondary: var(--rionna-blue-700);
+		--secondary-foreground: #FFFFFF;
 		--destructive: var(--color-red-600);
-		--destructive-foreground: var(--color-white);
-		--success: var(--color-emerald-600);
-		--success-foreground: var(--color-white);
-		--muted: var(--color-stone-900);
-		--muted-foreground: var(--color-stone-400);
-		--accent: var(--color-stone-800);
-		--accent-foreground: var(--color-white);
-		--popover: var(--color-stone-900);
-		--popover-foreground: var(--color-white);
-		--card: var(--color-stone-900);
-		--card-foreground: var(--color-white);
+		--destructive-foreground: #FFFFFF;
+		--success: var(--rionna-green-300);
+		--success-foreground: #000000;
+		--muted: var(--rionna-blue-700);
+		--muted-foreground: var(--rionna-blue-300);
+		--accent: var(--rionna-blue-700);
+		--accent-foreground: #FFFFFF;
+		--popover: var(--rionna-blue-950);
+		--popover-foreground: #FFFFFF;
+		--card: var(--rionna-blue-950);
+		--card-foreground: #FFFFFF;
 	}
 }
 
@@ -71,6 +85,23 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+
+	--color-rionna-blue-100: var(--rionna-blue-100);
+	--color-rionna-blue-300: var(--rionna-blue-300);
+	--color-rionna-blue-700: var(--rionna-blue-700);
+	--color-rionna-blue-950: var(--rionna-blue-950);
+	--color-rionna-beige: var(--rionna-beige);
+	--color-rionna-green-100: var(--rionna-green-100);
+	--color-rionna-green-300: var(--rionna-green-300);
+	--color-rionna-green-950: var(--rionna-green-950);
+	--color-rionna-pink-100: var(--rionna-pink-100);
+	--color-rionna-pink-300: var(--rionna-pink-300);
+	--color-rionna-pink-700: var(--rionna-pink-700);
+	--color-rionna-pink-950: var(--rionna-pink-950);
+	--font-display: var(--font-display), serif;
+	--font-sans: var(--font-sans), sans-serif;
+	--font-mono: var(--font-mono), monospace;
+
 	--radius-sm: calc(var(--radius) * 0.6);
 	--radius-md: calc(var(--radius) * 0.8);
 	--radius-lg: var(--radius);

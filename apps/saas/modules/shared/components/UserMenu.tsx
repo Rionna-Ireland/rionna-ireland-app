@@ -12,7 +12,7 @@ import {
 	DropdownMenuTrigger,
 } from "@repo/ui";
 import { UserAvatar } from "@shared/components/UserAvatar";
-import { BookIcon, HomeIcon, LogOutIcon, MoreVerticalIcon, SettingsIcon } from "lucide-react";
+import { HomeIcon, LogOutIcon, MoreVerticalIcon, SettingsIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
@@ -88,15 +88,6 @@ export function UserMenu({ showUserName }: { showUserName?: boolean }) {
 						{t("app.userMenu.accountSettings")}
 					</Link>
 				</DropdownMenuItem>
-
-				{config.docsUrl && (
-					<DropdownMenuItem asChild>
-						<a href={config.docsUrl}>
-							<BookIcon className="mr-2 size-4" />
-							{t("app.userMenu.documentation")}
-						</a>
-					</DropdownMenuItem>
-				)}
 
 				{config.marketingUrl && (
 					<DropdownMenuItem asChild>

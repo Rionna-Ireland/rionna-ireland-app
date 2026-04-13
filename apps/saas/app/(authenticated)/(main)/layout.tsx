@@ -14,6 +14,20 @@ export default async function MainLayout({ children }: PropsWithChildren) {
 		redirect("/login");
 	}
 
+	// Subscription check BEFORE onboarding (per D9: subscribe → then onboard)
+	// Billing is user-scoped (billingAttachedTo: "user"), so query by userId not organizationId
+	if (paymentsConfig.requireActiveSubscription) {
+		const purchases = await listPurchases.callable({
+			context: { headers: await headers() },
+		})({});
+
+		const { activePlan } = createPurchasesHelper(purchases);
+
+		if (!activePlan) {
+			redirect("/subscribe");
+		}
+	}
+
 	if (authConfig.users.enableOnboarding && !session.user.onboardingComplete) {
 		redirect("/onboarding");
 	}
@@ -27,24 +41,6 @@ export default async function MainLayout({ children }: PropsWithChildren) {
 
 		if (!organization) {
 			redirect("/new-organization");
-		}
-	}
-
-	if (paymentsConfig.requireActiveSubscription) {
-		const organizationId = authConfig.organizations.enable
-			? session?.session.activeOrganizationId || organizations?.at(0)?.id
-			: undefined;
-
-		const purchases = await listPurchases.callable({
-			context: { headers: await headers() },
-		})({
-			organizationId,
-		});
-
-		const { activePlan } = createPurchasesHelper(purchases);
-
-		if (!activePlan) {
-			redirect("/choose-plan");
 		}
 	}
 

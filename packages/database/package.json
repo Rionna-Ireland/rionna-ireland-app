@@ -8,7 +8,8 @@
 		"generate": "dotenv -c -e ../../.env -- prisma generate --no-hints",
 		"push": "dotenv -c -e ../../.env -- prisma db push",
 		"migrate": "dotenv -c -e ../../.env -- prisma migrate dev",
-		"studio": "dotenv -c -e ../../.env -- prisma studio",
+		"seed": "dotenv -c -e ../../.env -- node --import tsx/esm prisma/seed.ts",
+"studio": "dotenv -c -e ../../.env -- prisma studio",
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {

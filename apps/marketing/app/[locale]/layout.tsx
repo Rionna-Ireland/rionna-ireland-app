@@ -10,15 +10,33 @@ import { NavBar } from "@shared/components/NavBar";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { ThemeProvider } from "next-themes";
-import { Figtree } from "next/font/google";
+import localFont from "next/font/local";
+import { Plus_Jakarta_Sans, IBM_Plex_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import type { PropsWithChildren } from "react";
 
-const sansFont = Figtree({
-	weight: ["300", "400", "500", "600", "700"],
+const ppEiko = localFont({
+	src: [
+		{ path: "../../public/fonts/PPEiko-Thin.otf", weight: "100", style: "normal" },
+		{ path: "../../public/fonts/PPEiko-LightItalic.otf", weight: "300", style: "italic" },
+		{ path: "../../public/fonts/PPEiko-Medium.otf", weight: "500", style: "normal" },
+		{ path: "../../public/fonts/PPEiko-Heavy.otf", weight: "800", style: "normal" },
+		{ path: "../../public/fonts/PPEiko-BlackItalic.otf", weight: "900", style: "italic" },
+	],
+	variable: "--font-display",
+});
+
+const plusJakarta = Plus_Jakarta_Sans({
 	subsets: ["latin"],
 	variable: "--font-sans",
+	weight: ["400", "500", "600"],
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+	subsets: ["latin"],
+	variable: "--font-mono",
+	weight: ["400"],
 });
 
 const locales = Object.keys(i18nConfig.locales) as string[];
@@ -45,7 +63,7 @@ export default async function MarketingLayout({
 	const consentCookie = cookieStore.get("consent");
 
 	return (
-		<html lang={locale} suppressHydrationWarning className={sansFont.variable}>
+		<html lang={locale} suppressHydrationWarning className={`${ppEiko.variable} ${plusJakarta.variable} ${ibmPlexMono.variable}`}>
 			<body className={cn("min-h-screen bg-background text-foreground antialiased")}>
 				<ConsentProvider initialConsent={consentCookie?.value === "true"}>
 					<NextIntlClientProvider locale={locale} messages={messages}>

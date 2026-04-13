@@ -43,6 +43,13 @@ model User {
   notifications            Notification[]
   notificationPreferences  UserNotificationPreference[]
 
+  // Notification preferences (S1-02)
+  pushEnabled          Boolean  @default(true)
+  pushPreferences      Json     @default("{}")
+  emailPreferences     Json     @default("{}")
+  pushTokens           PushToken[]
+  authoredNewsPosts    NewsPost[]
+
   @@unique([email])
   @@unique([username])
   @@map("user")
@@ -147,6 +154,17 @@ model Organization {
   invitations        Invitation[]
   purchases          Purchase[]
 
+  // Racing domain (S1-02)
+  horses       Horse[]
+  trainers     Trainer[]
+  jockeys      Jockey[]
+  courses      Course[]
+  meetings     Meeting[]
+  races        Race[]
+  raceEntries  RaceEntry[]
+  newsPosts    NewsPost[]
+  pushLogs     PushLog[]
+
   @@unique([slug])
   @@map("organization")
 }
@@ -159,6 +177,11 @@ model Member {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           String
   createdAt      DateTime
+
+  // Circle sync lifecycle (S1-02)
+  circleMemberId      String?
+  circleProvisionedAt DateTime?
+  circleStatus        String?
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -242,5 +265,302 @@ model UserNotificationPreference {
 
   @@unique([userId, type, target])
   @@map("user_notification_preference")
+}
+
+// ──────────────────────────────────────────────
+// Racing domain (S1-02)
+// ──────────────────────────────────────────────
+
+enum HorseStatus {
+  PRE_TRAINING
+  IN_TRAINING
+  REHAB
+  RETIRED
+  SOLD
+}
+
+model Horse {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  slug             String
+  name             String
+
+  providerEntityId String?
+  providerLastSync DateTime?
+
+  status           HorseStatus  @default(IN_TRAINING)
+
+  bio              String?      @db.Text
+  trainerNotes     String?      @db.Text
+  photos           Json         @default("[]")
+  pedigree         Json?
+  ownershipBlurb   String?
+
+  circleSpaceId    String?
+
+  trainerId        String?
+  trainer          Trainer?     @relation(fields: [trainerId], references: [id])
+
+  sortOrder        Int          @default(0)
+  publishedAt      DateTime?
+
+  latestEntryId    String?      @unique
+  nextEntryId      String?      @unique
+
+  entries          RaceEntry[]
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([organizationId, slug])
+  @@unique([organizationId, providerEntityId])
+  @@index([organizationId, publishedAt])
+  @@map("horse")
+}
+
+model Trainer {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerEntityId String?
+  name             String
+  meta             Json?
+  horses           Horse[]
+  entries          RaceEntry[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([organizationId, providerEntityId])
+  @@index([organizationId, name])
+  @@map("trainer")
+}
+
+model Jockey {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerEntityId String?
+  name             String
+  meta             Json?
+  entries          RaceEntry[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([organizationId, providerEntityId])
+  @@map("jockey")
+}
+
+model Course {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerEntityId String?
+  name             String
+  country          String?
+  surface          String?
+  meetings         Meeting[]
+  createdAt        DateTime     @default(now())
+
+  @@unique([organizationId, providerEntityId])
+  @@map("course")
+}
+
+model Meeting {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerEntityId String?
+  courseId          String
+  course           Course       @relation(fields: [courseId], references: [id])
+  date             DateTime
+  races            Race[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([organizationId, providerEntityId])
+  @@index([organizationId, date])
+  @@map("meeting")
+}
+
+model Race {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerEntityId String?
+
+  meetingId        String
+  meeting          Meeting      @relation(fields: [meetingId], references: [id])
+
+  postTime         DateTime
+  name             String?
+  raceType         String?
+  distanceFurlongs Int?
+  className        String?
+  prizeMoney       Int?
+  goingDescription String?
+
+  entries          RaceEntry[]
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([organizationId, providerEntityId])
+  @@index([organizationId, postTime])
+  @@map("race")
+}
+
+enum RaceEntryStatus {
+  ENTERED
+  DECLARED
+  NON_RUNNER
+  RAN
+  DISQUALIFIED
+  VOID
+}
+
+model RaceEntry {
+  id               String          @id @default(cuid())
+  organizationId   String
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerEntityId String?
+
+  horseId          String
+  horse            Horse           @relation(fields: [horseId], references: [id], onDelete: Cascade)
+
+  raceId           String
+  race             Race            @relation(fields: [raceId], references: [id], onDelete: Cascade)
+
+  status           RaceEntryStatus
+
+  draw             Int?
+  weightLbs        Int?
+  jockeyId         String?
+  jockey           Jockey?         @relation(fields: [jockeyId], references: [id])
+  trainerId        String?
+  trainer          Trainer?        @relation(fields: [trainerId], references: [id])
+
+  finishingPosition Int?
+  beatenLengths    Decimal?        @db.Decimal(5, 2)
+  ratingAchieved   Int?
+  timeformComment  String?         @db.Text
+  performanceRating Int?
+  starRating       Int?
+
+  notifiedStates   Json            @default("[]")
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([organizationId, providerEntityId])
+  @@index([organizationId, status])
+  @@index([horseId, status])
+  @@index([raceId])
+  @@map("race_entry")
+}
+
+// ──────────────────────────────────────────────
+// Club content (S1-02)
+// ──────────────────────────────────────────────
+
+model NewsPost {
+  id                     String       @id @default(cuid())
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  slug                   String
+  title                  String
+  subtitle               String?
+  featuredImageUrl       String?
+
+  contentJson            Json
+  contentHtml            String       @db.Text
+
+  publishedAt            DateTime?
+  notifyMembersOnPublish Boolean      @default(false)
+  notificationSentAt     DateTime?
+
+  authorUserId           String?
+  author                 User?        @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, publishedAt])
+  @@map("news_post")
+}
+
+// ──────────────────────────────────────────────
+// Push infrastructure (S1-02)
+// ──────────────────────────────────────────────
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+}
+
+model PushToken {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expoPushToken String         @unique
+  deviceLabel   String?
+  platform      DevicePlatform
+  lastSeenAt    DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+
+  @@index([userId])
+  @@map("push_token")
+}
+
+enum PushTriggerType {
+  HORSE_DECLARED
+  HORSE_NON_RUNNER
+  RACE_RESULT
+  TRAINER_POST
+  NEWS_POST
+  SYSTEM
+}
+
+enum PushStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model PushLog {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  expoPushToken  String?
+  title          String
+  body           String
+  data           Json?
+  triggerType    PushTriggerType
+  triggerRefId   String?
+  status         PushStatus      @default(QUEUED)
+  error          String?
+  sentAt         DateTime?
+  createdAt      DateTime        @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([triggerType, triggerRefId])
+  @@map("push_log")
+}
+
+// ──────────────────────────────────────────────
+// Stripe webhook idempotency (S1-02)
+// ──────────────────────────────────────────────
+
+model StripeEventLog {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+
+  @@index([type, processedAt])
+  @@map("stripe_event_log")
 }
 

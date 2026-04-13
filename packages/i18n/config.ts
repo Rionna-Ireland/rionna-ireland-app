@@ -4,23 +4,11 @@ export const config = {
 	locales: {
 		en: {
 			label: "English",
-			currency: "USD",
-		},
-		de: {
-			label: "Deutsch",
-			currency: "USD",
-		},
-		es: {
-			label: "Español",
-			currency: "USD",
-		},
-		fr: {
-			label: "Français",
-			currency: "USD",
+			currency: "EUR",
 		},
 	},
 	defaultLocale: "en",
-	defaultCurrency: "USD",
+	defaultCurrency: "EUR",
 	localeCookieName: "NEXT_LOCALE",
 } as const satisfies I18nConfig;
 

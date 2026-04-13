@@ -65,3 +65,22 @@ export async function deletePurchaseBySubscriptionId(subscriptionId: string) {
 		},
 	});
 }
+
+/**
+ * Checks that the user has an active subscription (active, trialing, or past_due).
+ * Throws if no qualifying Purchase is found.
+ */
+export async function requireActiveSubscription(userId: string) {
+	const purchase = await db.purchase.findFirst({
+		where: {
+			userId,
+			status: { in: ["active", "trialing", "past_due"] },
+		},
+	});
+
+	if (!purchase) {
+		throw new Error("Active subscription required");
+	}
+
+	return purchase;
+}
