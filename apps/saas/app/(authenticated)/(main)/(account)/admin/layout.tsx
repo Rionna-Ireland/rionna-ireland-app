@@ -57,7 +57,7 @@ export default async function AdminLayout({ children }: PropsWithChildren) {
 							},
 							{
 								title: t("menu.settings"),
-								href: "/admin/settings",
+								href: "/admin/settings/general",
 								icon: <SettingsIcon className="size-4 opacity-50" />,
 							},
 						],

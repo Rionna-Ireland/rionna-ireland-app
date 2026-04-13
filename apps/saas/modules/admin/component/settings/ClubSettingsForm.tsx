@@ -1,7 +1,7 @@
 "use client";
 
+import { useAdminOrganization } from "@admin/hooks/use-admin-organization";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useActiveOrganization } from "@organizations/hooks/use-active-organization";
 import { Button } from "@repo/ui/components/button";
 import {
 	Card,
@@ -64,8 +64,7 @@ const FONT_OPTIONS = [
 
 export function ClubSettingsForm() {
 	const t = useTranslations();
-	const { activeOrganization } = useActiveOrganization();
-	const organizationId = activeOrganization?.id;
+	const { organizationId } = useAdminOrganization();
 
 	const { data: settings, isLoading } = useQuery(
 		orpc.settings.get.queryOptions({

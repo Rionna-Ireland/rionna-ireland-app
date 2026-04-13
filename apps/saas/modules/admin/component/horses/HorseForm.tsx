@@ -1,8 +1,8 @@
 "use client";
 
+import { useAdminOrganization } from "@admin/hooks/use-admin-organization";
 import { getAdminPath } from "@admin/lib/links";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useActiveOrganization } from "@organizations/hooks/use-active-organization";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import {
@@ -66,8 +66,8 @@ export function HorseForm({ horseId }: HorseFormProps) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { confirm } = useConfirmationAlert();
-	const { activeOrganization } = useActiveOrganization();
-	const organizationId = activeOrganization?.id ?? "";
+	const { organizationId: orgId } = useAdminOrganization();
+	const organizationId = orgId ?? "";
 
 	const [trainerModalOpen, setTrainerModalOpen] = useState(false);
 	const [photos, setPhotos] = useState<Array<{ url: string; caption: string }>>([]);

@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
 
+import { handleCircleWebhook } from "./modules/circle/webhook";
 import { openApiHandler, rpcHandler } from "./orpc/handler";
 
 export { router } from "./orpc/router";
@@ -29,6 +30,8 @@ export const app = new Hono()
 	.on(["POST", "GET"], "/auth/**", (c) => auth.handler(c.req.raw))
 	// Payments webhook handler
 	.post("/webhooks/payments", (c) => paymentsWebhookHandler(c.req.raw))
+	// Circle webhook handler (Trainer Updates push notifications)
+	.post("/webhooks/circle", (c) => handleCircleWebhook(c.req.raw))
 	// Health check
 	.get("/health", (c) => c.text("OK"))
 	// oRPC handlers (for RPC and OpenAPI)

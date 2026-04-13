@@ -34,5 +34,23 @@
 		"openInApp": "Open this notification in the app:",
 		"subject": "New notification",
 		"view": "View"
+	},
+	"welcomeMember": {
+		"subject": "Welcome to your racing club!",
+		"heading": "Welcome to {clubName}!",
+		"greeting": "Hi {memberName},",
+		"intro": "Your membership is now active. Here's what to do next:",
+		"step1": "Download the {clubName} app from the App Store or Google Play",
+		"step2": "Sign in with your email and password",
+		"step3": "Explore Our Stables to meet the horses",
+		"step4": "Join the community to connect with other members",
+		"cta": "Visit the Community",
+		"footer": "You can manage your email preferences in the app at any time."
+	},
+	"newsNotification": {
+		"subject": "New post from your racing club",
+		"heading": "New from {clubName}",
+		"cta": "Read the full post",
+		"footer": "You're receiving this because you're a member of {clubName}. Manage your email preferences in the app."
 	}
 }

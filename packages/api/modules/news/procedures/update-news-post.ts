@@ -3,6 +3,7 @@ import { getNewsPostById, updateNewsPost as updateNewsPostDb } from "@repo/datab
 import { z } from "zod";
 
 import { adminProcedure } from "../../../orpc/procedures";
+import { sendNewsNotificationEmails } from "../../mail/send-news-notification";
 import { sendPush } from "../../racing/ingest/send-push";
 
 export const updateNewsPost = adminProcedure
@@ -74,6 +75,16 @@ export const updateNewsPost = adminProcedure
 
 			await updateNewsPostDb(input.newsPostId, {
 				notificationSentAt: new Date(),
+			});
+
+			// Send email notifications to eligible members (S2-05)
+			await sendNewsNotificationEmails({
+				id: post.id,
+				organizationId: post.organizationId,
+				title: post.title,
+				subtitle: post.subtitle,
+				featuredImageUrl: post.featuredImageUrl,
+				slug: post.slug,
 			});
 		}
 

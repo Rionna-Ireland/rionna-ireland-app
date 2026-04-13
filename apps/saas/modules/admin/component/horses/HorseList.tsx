@@ -1,7 +1,7 @@
 "use client";
 
+import { useAdminOrganization } from "@admin/hooks/use-admin-organization";
 import { getAdminPath } from "@admin/lib/links";
-import { useActiveOrganization } from "@organizations/hooks/use-active-organization";
 import { Spinner } from "@repo/ui";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
@@ -45,7 +45,7 @@ export function HorseList() {
 	const t = useTranslations();
 	const router = useRouter();
 	const queryClient = useQueryClient();
-	const { activeOrganization } = useActiveOrganization();
+	const { organizationId: orgId } = useAdminOrganization();
 
 	const [currentPage, setCurrentPage] = useQueryState(
 		"currentPage",
@@ -54,7 +54,7 @@ export function HorseList() {
 	const [statusFilter, setStatusFilter] = useQueryState("status", parseAsString.withDefault(""));
 	const [selectedIds, setSelectedIds] = useQueryState("selected", parseAsString.withDefault(""));
 
-	const organizationId = activeOrganization?.id ?? "";
+	const organizationId = orgId ?? "";
 
 	const { data, isLoading } = useQuery({
 		...orpc.admin.horses.list.queryOptions({

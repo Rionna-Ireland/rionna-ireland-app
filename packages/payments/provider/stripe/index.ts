@@ -12,6 +12,7 @@ import {
 	provisionCircleMember,
 	reactivateCircleMember,
 } from "../../lib/circle-provisioning";
+import { sendWelcomeEmail } from "../../lib/send-welcome-email";
 import { setCustomerIdToEntity } from "../../lib/customer";
 import { getPlanIdByProviderPriceId } from "../../lib/provider-price-ids";
 import { clearEventDedup, isEventDuplicate } from "../../lib/stripe-dedup";
@@ -204,6 +205,11 @@ export async function handleSubscriptionCreated(event: Stripe.Event) {
 			{ id: member.id, userId, organizationId },
 			event.id,
 		);
+	}
+
+	// 4. Send welcome email (S2-05)
+	if (userId && organizationId) {
+		await sendWelcomeEmail(userId, organizationId);
 	}
 }
 

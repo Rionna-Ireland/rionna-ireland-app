@@ -1,8 +1,8 @@
 "use client";
 
-import { getAdminPath } from "@admin/lib/links";
 import { NovelEditor } from "@admin/component/novel-editor";
-import { useActiveOrganization } from "@organizations/hooks/use-active-organization";
+import { useAdminOrganization } from "@admin/hooks/use-admin-organization";
+import { getAdminPath } from "@admin/lib/links";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -49,8 +49,8 @@ export function NewsForm({ newsPostId }: NewsFormProps) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { confirm } = useConfirmationAlert();
-	const { activeOrganization } = useActiveOrganization();
-	const organizationId = activeOrganization?.id ?? "";
+	const { organizationId: orgId } = useAdminOrganization();
+	const organizationId = orgId ?? "";
 
 	const contentJsonRef = useRef<JSONContent | undefined>(undefined);
 	const contentHtmlRef = useRef<string>("");
