@@ -1,6 +1,7 @@
 {
 	"admin": {
 		"menu": {
+			"horses": "Horses",
 			"news": "News",
 			"organizations": "Organizations",
 			"users": "Users",
@@ -47,6 +48,85 @@
 				"title": "Billing",
 				"stripeProductId": "Stripe product ID",
 				"managed": "Billing configuration is managed via Stripe Dashboard."
+			}
+		},
+		"horses": {
+			"title": "Manage horses",
+			"loading": "Loading horses...",
+			"addHorse": "Add Horse",
+			"backToList": "Back to horses",
+			"noResults": "No horses found.",
+			"columns": {
+				"photo": "Photo",
+				"name": "Name",
+				"status": "Status",
+				"trainer": "Trainer",
+				"published": "Published",
+				"sortOrder": "Sort Order"
+			},
+			"status": {
+				"PRE_TRAINING": "Pre-training",
+				"IN_TRAINING": "In training",
+				"REHAB": "Rehab",
+				"RETIRED": "Retired",
+				"SOLD": "Sold"
+			},
+			"filterByStatus": "Filter by status",
+			"allStatuses": "All statuses",
+			"bulkPublish": "Publish selected",
+			"bulkUnpublish": "Unpublish selected",
+			"form": {
+				"createTitle": "Add a horse",
+				"updateTitle": "Edit horse",
+				"name": "Name",
+				"slug": "Slug",
+				"status": "Status",
+				"trainer": "Trainer",
+				"addTrainer": "+ Add trainer",
+				"sortOrder": "Sort order",
+				"providerEntityId": "Timeform ID",
+				"providerEntityIdHint": "Paste the Timeform ID to connect live race data.",
+				"syncNow": "Sync Now",
+				"syncStatusLinked": "Synced",
+				"syncStatusStale": "Sync stale",
+				"syncStatusUnlinked": "Not linked",
+				"circleSpaceId": "Circle Space ID",
+				"circleSpaceIdHint": "Paste the Circle space ID to enable the Discussion button on the horse profile.",
+				"bio": "Bio",
+				"trainerNotes": "Trainer Notes",
+				"ownershipBlurb": "Ownership Blurb",
+				"pedigree": "Pedigree",
+				"sire": "Sire",
+				"dam": "Dam",
+				"damsire": "Damsire",
+				"photos": "Photos",
+				"photosDisabledHint": "Save the horse first to enable photo uploads.",
+				"publishToggle": "Published",
+				"publishConfirmTitle": "Publish horse",
+				"publishConfirmMessage": "This will make {name} visible to all members.",
+				"publishConfirmButton": "Publish",
+				"save": "Save",
+				"delete": "Delete",
+				"notifications": {
+					"created": "Horse has been created.",
+					"updated": "Horse has been updated.",
+					"deleted": "Horse has been deleted.",
+					"error": "Could not save the horse. Please try again later.",
+					"synced": "Horse synced successfully.",
+					"syncError": "Could not sync horse. Please try again.",
+					"published": "Horses published successfully.",
+					"unpublished": "Horses unpublished successfully."
+				}
+			},
+			"trainerModal": {
+				"title": "Add Trainer",
+				"name": "Trainer name",
+				"save": "Save",
+				"cancel": "Cancel",
+				"notifications": {
+					"created": "Trainer has been created.",
+					"error": "Could not create trainer. Please try again."
+				}
 			}
 		},
 		"organizations": {

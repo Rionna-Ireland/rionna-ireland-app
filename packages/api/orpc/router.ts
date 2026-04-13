@@ -6,6 +6,7 @@ import { newsRouter } from "../modules/news/router";
 import { notificationsRouter } from "../modules/notifications/router";
 import { organizationsRouter } from "../modules/organizations/router";
 import { paymentsRouter } from "../modules/payments/router";
+import { horsesPublicRouter } from "../modules/racing/horses/public-router";
 import { settingsRouter } from "../modules/settings/router";
 import { usersRouter } from "../modules/users/router";
 import { publicProcedure } from "./procedures";
@@ -13,6 +14,7 @@ import { publicProcedure } from "./procedures";
 export const router = publicProcedure.router({
 	admin: adminRouter,
 	circle: circleRouter,
+	horses: horsesPublicRouter,
 	news: newsRouter,
 	organizations: organizationsRouter,
 	users: usersRouter,
