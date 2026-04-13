@@ -14,7 +14,7 @@ import {
 } from "../../lib/circle-provisioning";
 import { setCustomerIdToEntity } from "../../lib/customer";
 import { getPlanIdByProviderPriceId } from "../../lib/provider-price-ids";
-import { isEventDuplicate } from "../../lib/stripe-dedup";
+import { clearEventDedup, isEventDuplicate } from "../../lib/stripe-dedup";
 import type {
 	CancelSubscription,
 	CreateCheckoutLink,
@@ -146,12 +146,27 @@ export async function handleSubscriptionCreated(event: Stripe.Event) {
 		throw new Error("Missing plan or price ID in subscription.created");
 	}
 
-	// Wrap Purchase + Member creation in a transaction to avoid orphaned rows
+	if (userId) {
+		await setCustomerIdToEntity(customer as string, {
+			userId,
+		});
+	}
+
+	// Wrap Purchase + Member creation in a transaction to avoid orphaned rows.
+	// The purchase is upserted so replays can safely resume after partial failure.
 	const member = await db.$transaction(async (tx) => {
-		// 1. Create Purchase (Layer 2: subscriptionId unique constraint prevents duplicates)
-		await tx.purchase.create({
-			data: {
+		await tx.purchase.upsert({
+			where: { subscriptionId: id },
+			create: {
 				subscriptionId: id,
+				organizationId,
+				userId,
+				customerId: customer as string,
+				type: "SUBSCRIPTION",
+				priceId,
+				status: subscription.status,
+			},
+			update: {
 				organizationId,
 				userId,
 				customerId: customer as string,
@@ -163,16 +178,15 @@ export async function handleSubscriptionCreated(event: Stripe.Event) {
 
 		// 2. Create Member row (linking user to organization) if both IDs present
 		if (userId && organizationId) {
-			const existingMember = await tx.member.findFirst({
-				where: { userId, organizationId },
-			});
-
-			if (existingMember) {
-				return existingMember;
-			}
-
-			return await tx.member.create({
-				data: {
+			return tx.member.upsert({
+				where: {
+					organizationId_userId: {
+						organizationId,
+						userId,
+					},
+				},
+				update: {},
+				create: {
 					userId,
 					organizationId,
 					role: "member",
@@ -182,11 +196,6 @@ export async function handleSubscriptionCreated(event: Stripe.Event) {
 		}
 
 		return null;
-	});
-
-	await setCustomerIdToEntity(customer as string, {
-		organizationId: organizationId ?? undefined,
-		userId: userId ?? undefined,
 	});
 
 	// 3. Provision Circle member (Layer 3: pre-call existence check)
@@ -289,15 +298,16 @@ export const webhookHandler: WebhookHandler = async (req) => {
 		});
 	}
 
-	try {
-		// Layer 1: StripeEventLog dedup — silently ignore duplicate deliveries
-		if (await isEventDuplicate(event.id, event.type)) {
-			return new Response(JSON.stringify({ received: true }), {
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			});
-		}
+	// Layer 1: StripeEventLog dedup — claim the event up front, then release it
+	// on failure so Stripe retries can safely resume partially completed work.
+	if (await isEventDuplicate(event.id, event.type)) {
+		return new Response(JSON.stringify({ received: true }), {
+			status: 200,
+			headers: { "Content-Type": "application/json" },
+		});
+	}
 
+	try {
 		switch (event.type) {
 			case "checkout.session.completed": {
 				const { mode, metadata, customer, id } = event.data.object;
@@ -319,17 +329,18 @@ export const webhookHandler: WebhookHandler = async (req) => {
 					});
 				}
 
+				if (metadata?.user_id) {
+					await setCustomerIdToEntity(customer as string, {
+						userId: metadata.user_id,
+					});
+				}
+
 				await createPurchase({
 					organizationId: metadata?.organization_id || null,
 					userId: metadata?.user_id || null,
 					customerId: customer as string,
 					type: "ONE_TIME",
 					priceId,
-				});
-
-				await setCustomerIdToEntity(customer as string, {
-					organizationId: metadata?.organization_id,
-					userId: metadata?.user_id,
 				});
 
 				break;
@@ -362,6 +373,7 @@ export const webhookHandler: WebhookHandler = async (req) => {
 
 		return new Response(null, { status: 204 });
 	} catch (error) {
+		await clearEventDedup(event.id);
 		logger.error("Webhook handler error", {
 			eventId: event.id,
 			eventType: event.type,

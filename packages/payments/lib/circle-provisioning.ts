@@ -111,7 +111,8 @@ export async function reactivateCircleMember(
 		email: user.email,
 		name: user.name ?? user.email,
 		ssoUserId: user.id,
-		idempotencyKey: `reactivate-${member.id}-${Date.now()}`,
+		// Stable across retries so Circle deduplicates reactivation requests.
+		idempotencyKey: `reactivate-${member.id}`,
 	});
 
 	await db.member.update({

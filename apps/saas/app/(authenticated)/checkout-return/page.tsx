@@ -1,3 +1,4 @@
+import React from "react";
 import { getSession } from "@auth/lib/server";
 import { CheckoutReturnContent } from "@payments/components/CheckoutReturnContent";
 import { AuthWrapper } from "@shared/components/AuthWrapper";
@@ -15,15 +16,10 @@ export async function generateMetadata() {
 	};
 }
 
-export default async function CheckoutReturnPage({
-	searchParams,
-}: {
-	searchParams: Promise<{ organizationId?: string }>;
-}) {
-	const [session, t, { organizationId }] = await Promise.all([
+export default async function CheckoutReturnPage() {
+	const [session, t] = await Promise.all([
 		getSession(),
 		getTranslations("checkoutReturn"),
-		searchParams,
 	]);
 
 	if (!session) {
@@ -33,11 +29,11 @@ export default async function CheckoutReturnPage({
 	return (
 		<AuthWrapper>
 			<div className="mb-4 text-center">
-				<h1 className="font-bold text-2xl lg:text-3xl">{t("title")}</h1>
-				<p className="text-sm lg:text-base text-muted-foreground">{t("description")}</p>
-			</div>
+			<h1 className="font-bold text-2xl lg:text-3xl">{t("title")}</h1>
+			<p className="text-sm lg:text-base text-muted-foreground">{t("description")}</p>
+		</div>
 
-			<CheckoutReturnContent organizationId={organizationId} />
+			<CheckoutReturnContent />
 		</AuthWrapper>
 	);
 }

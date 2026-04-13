@@ -1,8 +1,9 @@
 /**
- * Upsert helpers for the ingest worker
+ * Upsert helpers for the ingest worker.
  *
- * Each upsert uses providerEntityId as the match key.
- * Course uses a slug derived from courseName (not from providerMeetingId).
+ * Each upsert uses providerEntityId as the match key. Course identity is
+ * derived from provider meeting identity instead of the human-readable name,
+ * so a rename does not merge distinct rows.
  *
  * @see Architecture/specs/S1-07-ingest-worker.md §5
  */
@@ -10,18 +11,15 @@
 import { db } from "@repo/database";
 import type { ProviderEntry } from "../provider/types";
 
-function courseSlug(courseName: string): string {
-  return courseName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+function courseProviderEntityId(meeting: ProviderEntry["meeting"]): string {
+  return meeting.providerCourseId;
 }
 
 export async function upsertCourse(
   organizationId: string,
   meeting: ProviderEntry["meeting"],
 ) {
-  const providerEntityId = courseSlug(meeting.courseName);
+  const providerEntityId = courseProviderEntityId(meeting);
   return db.course.upsert({
     where: {
       organizationId_providerEntityId: {
@@ -168,5 +166,5 @@ export async function upsertRaceEntry(
     },
   });
 
-  return { raceEntry, previousStatus };
+  return { raceEntry, previousStatus, existing };
 }

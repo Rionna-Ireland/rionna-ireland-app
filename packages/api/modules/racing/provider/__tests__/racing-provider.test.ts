@@ -373,6 +373,7 @@ describe("MockRacingDataProvider — getEntriesForHorse", () => {
       expect(e).toHaveProperty("race");
       expect(e).toHaveProperty("entry");
       expect(e.meeting).toHaveProperty("providerMeetingId");
+      expect(e.meeting).toHaveProperty("providerCourseId");
       expect(e.race).toHaveProperty("providerRaceId");
       expect(e.race).toHaveProperty("postTime");
       expect(e.entry).toHaveProperty("providerEntryId");

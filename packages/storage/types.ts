@@ -3,6 +3,10 @@ export interface StorageBucketNamesConfig {
 	 * Bucket used for user and organization avatar uploads.
 	 */
 	avatars: string;
+	/**
+	 * Bucket used for media uploads (horse photos, news images, brand assets).
+	 */
+	media: string;
 }
 
 export interface StorageConfig {

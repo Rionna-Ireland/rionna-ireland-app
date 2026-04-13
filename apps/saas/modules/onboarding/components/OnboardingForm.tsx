@@ -1,12 +1,13 @@
 "use client";
 import { authClient } from "@repo/auth/client";
+import { useUserPurchases } from "@payments/hooks/purchases";
 import { Progress } from "@repo/ui/components/progress";
 import { useRouter } from "@shared/hooks/router";
 import { clearCache } from "@shared/lib/cache";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
 import { withQuery } from "ufo";
+import type { ReactNode } from "react";
 
 import { OnboardingAccountStep } from "./OnboardingAccountStep";
 
@@ -14,6 +15,7 @@ export function OnboardingForm() {
 	const t = useTranslations();
 	const router = useRouter();
 	const searchParams = useSearchParams();
+	const { activePlan } = useUserPurchases();
 
 	const stepSearchParam = searchParams.get("step");
 	const redirectTo = searchParams.get("redirectTo");
@@ -29,6 +31,10 @@ export function OnboardingForm() {
 	};
 
 	const onCompleted = async () => {
+		if (!activePlan) {
+			return;
+		}
+
 		await authClient.updateUser({
 			onboardingComplete: true,
 		});
@@ -37,15 +43,11 @@ export function OnboardingForm() {
 		router.replace(redirectTo ?? "/");
 	};
 
-	const steps = useMemo(() => {
-		const allSteps: { component: React.ReactNode }[] = [
-			{
-				component: <OnboardingAccountStep onCompleted={() => onCompleted()} />,
-			},
-		];
-
-		return allSteps;
-	}, []); // oxlint-disable-line eslint-plugin-react-hooks/exhaustive-deps
+	const steps: { component: ReactNode }[] = [
+		{
+			component: <OnboardingAccountStep onCompleted={() => onCompleted()} />,
+		},
+	];
 
 	return (
 		<div>

@@ -95,6 +95,7 @@ const HORSE_PROFILES: ProviderHorse[] = [
 
 interface MockMeeting {
   providerMeetingId: string;
+  providerCourseId: string;
   courseName: string;
   courseCountry: string;
   date: Date;
@@ -103,18 +104,21 @@ interface MockMeeting {
 const MEETINGS: MockMeeting[] = [
   {
     providerMeetingId: "mock-meeting-001",
+    providerCourseId: "mock-course-leopardstown",
     courseName: "Leopardstown",
     courseCountry: "IE",
     date: daysFromNow(-2), // 2 days ago
   },
   {
     providerMeetingId: "mock-meeting-002",
+    providerCourseId: "mock-course-curragh",
     courseName: "Curragh",
     courseCountry: "IE",
     date: daysFromNow(0), // today
   },
   {
     providerMeetingId: "mock-meeting-003",
+    providerCourseId: "mock-course-cheltenham",
     courseName: "Cheltenham",
     courseCountry: "GB",
     date: daysFromNow(3), // 3 days from now
@@ -245,6 +249,7 @@ function buildEntry(
     providerHorseId: horse.providerHorseId,
     meeting: {
       providerMeetingId: race.meeting.providerMeetingId,
+      providerCourseId: race.meeting.providerCourseId,
       courseName: race.meeting.courseName,
       courseCountry: race.meeting.courseCountry,
       date: race.meeting.date,

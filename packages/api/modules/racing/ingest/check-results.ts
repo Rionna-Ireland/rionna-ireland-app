@@ -44,34 +44,77 @@ export async function checkForResults(
         );
         if (!raceEntry) continue;
 
-        const updated = await db.raceEntry.update({
-          where: { id: raceEntry.id },
-          data: {
-            status: "RAN",
-            finishingPosition: entryResult.finishingPosition ?? null,
-            beatenLengths: entryResult.beatenLengths ?? null,
-            ratingAchieved: entryResult.ratingAchieved ?? null,
-            timeformComment: entryResult.timeformComment ?? null,
-            performanceRating: entryResult.performanceRating ?? null,
-            starRating: entryResult.starRating ?? null,
-          },
-        });
+        let horseSnapshot:
+          | { nextEntryId: string | null; latestEntryId: string | null }
+          | null = null;
 
-        await handleStatusTransition(
-          organizationId,
-          { id: raceEntry.horse.id, name: raceEntry.horse.name },
-          {
-            id: race.id,
-            name: race.name,
-            postTime: race.postTime,
-            courseName: race.meeting.course.name,
-          },
-          {
-            ...updated,
-            finishingPosition: entryResult.finishingPosition ?? null,
-          },
-          raceEntry.status,
-        );
+        try {
+          horseSnapshot = await db.horse.findUnique({
+            where: { id: raceEntry.horse.id },
+            select: { nextEntryId: true, latestEntryId: true },
+          });
+
+          const updated = await db.raceEntry.update({
+            where: { id: raceEntry.id },
+            data: {
+              status: "RAN",
+              finishingPosition: entryResult.finishingPosition ?? null,
+              beatenLengths: entryResult.beatenLengths ?? null,
+              ratingAchieved: entryResult.ratingAchieved ?? null,
+              timeformComment: entryResult.timeformComment ?? null,
+              performanceRating: entryResult.performanceRating ?? null,
+              starRating: entryResult.starRating ?? null,
+            },
+          });
+
+          await handleStatusTransition(
+            organizationId,
+            { id: raceEntry.horse.id, name: raceEntry.horse.name },
+            {
+              id: race.id,
+              name: race.name,
+              postTime: race.postTime,
+              courseName: race.meeting.course.name,
+            },
+            {
+              ...updated,
+              finishingPosition: entryResult.finishingPosition ?? null,
+            },
+            raceEntry.status,
+          );
+        } catch (error) {
+          try {
+            await db.raceEntry.update({
+              where: { id: raceEntry.id },
+              data: {
+                status: raceEntry.status,
+                finishingPosition: raceEntry.finishingPosition,
+                beatenLengths: raceEntry.beatenLengths,
+                ratingAchieved: raceEntry.ratingAchieved,
+                timeformComment: raceEntry.timeformComment,
+                performanceRating: raceEntry.performanceRating,
+                starRating: raceEntry.starRating,
+                notifiedStates: raceEntry.notifiedStates,
+              },
+            });
+
+            if (horseSnapshot) {
+              await db.horse.update({
+                where: { id: raceEntry.horse.id },
+                data: horseSnapshot,
+              });
+            }
+          } catch (rollbackError) {
+            logger.error(`Failed to roll back result transition for race ${race.id}`, {
+              rollbackError,
+            });
+          }
+
+          logger.error(
+            `Result transition failed for horse ${raceEntry.horse.name} (${raceEntry.horse.id}) in race ${race.id}`,
+            { error },
+          );
+        }
       }
     } catch (error) {
       logger.error(`Result check failed for race ${race.id}`, { error });

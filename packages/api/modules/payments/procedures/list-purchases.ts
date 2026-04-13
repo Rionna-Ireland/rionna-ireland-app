@@ -1,8 +1,34 @@
-import { getPurchasesByOrganizationId, getPurchasesByUserId } from "@repo/database";
+import {
+	getOrganizationMembership,
+	getPurchasesByOrganizationId,
+	getPurchasesByUserId,
+} from "@repo/database";
 import { getPlanIdByProviderPriceId, getPlanPriceByProviderPriceId } from "@repo/payments";
 import { z } from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
+
+export async function getVisiblePurchases({
+	organizationId,
+	userId,
+}: {
+	organizationId?: string;
+	userId: string;
+}) {
+	if (!organizationId) {
+		return getPurchasesByUserId(userId);
+	}
+
+	const membership = await getOrganizationMembership(organizationId, userId);
+
+	if (membership) {
+		return getPurchasesByOrganizationId(organizationId);
+	}
+
+	// Fall back to the user's own purchases so checkout-return polling stays
+	// user-scoped until membership creation finishes.
+	return getPurchasesByUserId(userId);
+}
 
 export const listPurchases = protectedProcedure
 	.route({
@@ -18,9 +44,10 @@ export const listPurchases = protectedProcedure
 		}),
 	)
 	.handler(async ({ input: { organizationId }, context: { user } }) => {
-		const purchases = organizationId
-			? await getPurchasesByOrganizationId(organizationId)
-			: await getPurchasesByUserId(user.id);
+		const purchases = await getVisiblePurchases({
+			organizationId,
+			userId: user.id,
+		});
 
 		return purchases.map((purchase) => ({
 			...purchase,

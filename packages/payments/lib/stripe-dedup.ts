@@ -24,3 +24,9 @@ export async function isEventDuplicate(eventId: string, eventType: string): Prom
 		throw error; // Unexpected error — let it bubble
 	}
 }
+
+export async function clearEventDedup(eventId: string): Promise<void> {
+	await db.stripeEventLog.deleteMany({
+		where: { id: eventId },
+	});
+}

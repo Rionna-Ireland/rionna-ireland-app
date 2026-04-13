@@ -1,6 +1,9 @@
+import React from "react";
 import { getSession } from "@auth/lib/server";
+import { listPurchases } from "@payments/lib/server";
 import { OnboardingForm } from "@onboarding/components/OnboardingForm";
 import { config } from "@repo/auth/config";
+import { createPurchasesHelper } from "@repo/payments/lib/helper";
 import { AuthWrapper } from "@shared/components/AuthWrapper";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
@@ -25,6 +28,13 @@ export default async function OnboardingPage() {
 
 	if (!config.users.enableOnboarding || session.user.onboardingComplete) {
 		redirect("/");
+	}
+
+	const purchases = await listPurchases();
+	const { activePlan } = createPurchasesHelper(purchases);
+
+	if (!activePlan) {
+		redirect("/subscribe");
 	}
 
 	return (

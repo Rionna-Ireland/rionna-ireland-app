@@ -44,6 +44,7 @@ export async function reconcileCircleMembers(
 			user: {
 				purchases: {
 					some: {
+						organizationId,
 						status: { in: ["active", "trialing", "past_due"] },
 					},
 				},
@@ -94,8 +95,13 @@ export async function reconcileCircleMembers(
 			circleMemberId: { not: null },
 			user: {
 				purchases: {
-					every: {
+					some: {
+						organizationId,
 						status: { in: ["canceled", "expired"] },
+					},
+					none: {
+						organizationId,
+						status: { in: ["active", "trialing", "past_due"] },
 					},
 				},
 			},

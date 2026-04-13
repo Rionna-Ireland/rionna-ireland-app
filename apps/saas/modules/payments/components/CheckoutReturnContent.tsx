@@ -11,14 +11,13 @@ import { useEffect, useState } from "react";
 const MAX_WAIT_MS = 20_000;
 const POLL_INTERVAL_MS = 2_000;
 
-export function CheckoutReturnContent({ organizationId }: { organizationId?: string }) {
+export function CheckoutReturnContent() {
 	const t = useTranslations("checkoutReturn");
 	const router = useRouter();
 	const [polling, setPolling] = useState(true);
-
 	const { data } = useQuery({
 		...orpc.payments.listPurchases.queryOptions({
-			input: { organizationId },
+			input: {},
 		}),
 		refetchInterval: polling ? POLL_INTERVAL_MS : false,
 	});

@@ -13,6 +13,7 @@ export interface ProviderEntry {
   providerHorseId: string;
   meeting: {
     providerMeetingId: string;
+    providerCourseId: string;
     courseName: string;
     courseCountry?: string;
     date: Date;
