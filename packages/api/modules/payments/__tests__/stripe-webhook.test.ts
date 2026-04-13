@@ -638,7 +638,7 @@ describe("handleSubscriptionUpdated", () => {
 			data: {
 				object: makeSubscriptionObject({ status: "active" }),
 				previous_attributes: { status: "canceled" },
-			} as unknown as StripeEvent.Data,
+			} as StripeEvent["data"],
 		});
 
 		await handleSubscriptionUpdated(event);
@@ -672,7 +672,7 @@ describe("handleSubscriptionUpdated", () => {
 			data: {
 				object: makeSubscriptionObject({ status: "active" }),
 				previous_attributes: { status: "canceled" },
-			} as unknown as StripeEvent.Data,
+			} as StripeEvent["data"],
 		});
 
 		await handleSubscriptionUpdated(event);
@@ -698,7 +698,7 @@ describe("handleSubscriptionUpdated", () => {
 			data: {
 				object: makeSubscriptionObject({ status: "past_due" }),
 				previous_attributes: { status: "active" },
-			} as unknown as StripeEvent.Data,
+			} as StripeEvent["data"],
 		});
 
 		await handleSubscriptionUpdated(event);
@@ -728,7 +728,7 @@ describe("handleSubscriptionUpdated", () => {
 			data: {
 				object: makeSubscriptionObject({ status: "active" }),
 				previous_attributes: { status: "canceled" },
-			} as unknown as StripeEvent.Data,
+			} as StripeEvent["data"],
 		});
 
 		await handleSubscriptionUpdated(event);
@@ -759,7 +759,7 @@ describe("handleSubscriptionUpdated", () => {
 			data: {
 				object: makeSubscriptionObject({ status: "active" }),
 				previous_attributes: { status: "canceled" },
-			} as unknown as StripeEvent.Data,
+			} as StripeEvent["data"],
 		});
 
 		await handleSubscriptionUpdated(event);

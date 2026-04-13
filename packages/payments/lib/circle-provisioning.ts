@@ -1,70 +1,150 @@
+/**
+ * Circle Member Provisioning Orchestration
+ *
+ * These functions coordinate between the CircleService interface and
+ * Prisma. Called from Stripe webhook handlers (S1-04) and the auth
+ * deletion hook.
+ *
+ * @see Architecture/specs/S1-05-circle-provisioning.md
+ */
+
+import { db } from "@repo/database";
 import { logger } from "@repo/logs";
 
+import { createCircleService } from "./circle/index";
+
 /**
- * Placeholder for Circle member provisioning.
- * S1-05 will implement the actual Circle Admin API calls.
- *
- * @param member - The Member row with id, userId, organizationId
- * @param idempotencyKey - Stripe event ID used as Circle Idempotency-Key header
+ * Provision a new member in Circle.
+ * Called from Stripe webhook handler on subscription.created.
  */
 export async function provisionCircleMember(
 	member: { id: string; userId: string; organizationId: string },
 	idempotencyKey: string,
 ): Promise<void> {
-	logger.info("Circle provisioning placeholder called", {
-		memberId: member.id,
-		userId: member.userId,
-		organizationId: member.organizationId,
+	const org = await db.organization.findUnique({
+		where: { id: member.organizationId },
+	});
+	if (!org?.slug) {
+		logger.warn("[Circle] Organization not found for provisioning", {
+			organizationId: member.organizationId,
+		});
+		return;
+	}
+
+	const service = createCircleService(org.slug);
+
+	const user = await db.user.findUnique({ where: { id: member.userId } });
+	if (!user) {
+		logger.warn("[Circle] User not found for provisioning", {
+			userId: member.userId,
+		});
+		return;
+	}
+
+	const result = await service.createMember({
+		email: user.email,
+		name: user.name ?? user.email,
+		ssoUserId: user.id,
 		idempotencyKey,
 	});
-	// S1-05: Call Circle Admin API to create member
-	// Update member.circleMemberId and member.circleStatus = "active"
+
+	await db.member.update({
+		where: { id: member.id },
+		data: {
+			circleMemberId: result.circleMemberId,
+			circleProvisionedAt: new Date(),
+			circleStatus: "active",
+		},
+	});
+
+	logger.info("[Circle] Member provisioned", {
+		memberId: member.id,
+		circleMemberId: result.circleMemberId,
+	});
 }
 
 /**
- * Placeholder for Circle member deactivation.
- * S1-05 will implement the actual Circle Admin API calls.
- *
- * @param member - The Member row with circleMemberId
+ * Deactivate a member in Circle (preserves their posts).
+ * Called on subscription.deleted.
  */
 export async function deactivateCircleMember(
 	member: { id: string; circleMemberId: string },
 ): Promise<void> {
-	logger.info("Circle deactivation placeholder called", {
+	const dbMember = await db.member.findUnique({
+		where: { id: member.id },
+		include: { organization: true },
+	});
+	if (!dbMember?.organization?.slug) return;
+
+	const service = createCircleService(dbMember.organization.slug);
+	await service.deactivateMember(member.circleMemberId);
+
+	await db.member.update({
+		where: { id: member.id },
+		data: { circleStatus: "deactivated" },
+	});
+
+	logger.info("[Circle] Member deactivated", {
 		memberId: member.id,
 		circleMemberId: member.circleMemberId,
 	});
-	// S1-05: Call Circle Admin API to deactivate member
-	// Update member.circleStatus = "deactivated"
 }
 
 /**
- * Placeholder for Circle member reactivation.
- * S1-05 will implement the actual Circle Admin API calls.
- *
- * @param member - The Member row with circleMemberId
+ * Reactivate a member in Circle.
+ * Called when subscription transitions from canceled to active.
  */
 export async function reactivateCircleMember(
 	member: { id: string; circleMemberId: string },
 ): Promise<void> {
-	logger.info("Circle reactivation placeholder called", {
+	const dbMember = await db.member.findUnique({
+		where: { id: member.id },
+		include: { organization: true },
+	});
+	if (!dbMember?.organization?.slug) return;
+
+	const user = await db.user.findUnique({ where: { id: dbMember.userId } });
+	if (!user) return;
+
+	const service = createCircleService(dbMember.organization.slug);
+	await service.reactivateMember({
+		email: user.email,
+		name: user.name ?? user.email,
+		ssoUserId: user.id,
+		idempotencyKey: `reactivate-${member.id}-${Date.now()}`,
+	});
+
+	await db.member.update({
+		where: { id: member.id },
+		data: { circleStatus: "active" },
+	});
+
+	logger.info("[Circle] Member reactivated", {
 		memberId: member.id,
 		circleMemberId: member.circleMemberId,
 	});
-	// S1-05: Call Circle Admin API to reactivate member
-	// Update member.circleStatus = "active"
 }
 
 /**
- * Placeholder for Circle member deletion.
- * Called during user deletion cascade.
- * S1-05 will implement the actual Circle Admin API calls.
- *
- * @param circleMemberId - The Circle member ID to delete
+ * Delete a member and all their content from Circle.
+ * Called from user deletion hook (GDPR).
  */
-export async function deleteCircleMember(circleMemberId: string): Promise<void> {
-	logger.info("Circle deletion placeholder called", {
-		circleMemberId,
+export async function deleteCircleMember(
+	circleMemberId: string,
+): Promise<void> {
+	const member = await db.member.findFirst({
+		where: { circleMemberId },
+		include: { organization: true },
 	});
-	// S1-05: Call Circle Admin API to delete member
+	if (!member?.organization?.slug) {
+		logger.warn("[Circle] No member found for Circle ID during deletion", {
+			circleMemberId,
+		});
+		return;
+	}
+
+	const service = createCircleService(member.organization.slug);
+	await service.deleteMember(circleMemberId);
+
+	logger.info("[Circle] Member deleted", { circleMemberId });
 }
