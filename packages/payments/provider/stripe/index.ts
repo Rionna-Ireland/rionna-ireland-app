@@ -149,14 +149,16 @@ export async function handleSubscriptionCreated(event: Stripe.Event) {
 	// Wrap Purchase + Member creation in a transaction to avoid orphaned rows
 	const member = await db.$transaction(async (tx) => {
 		// 1. Create Purchase (Layer 2: subscriptionId unique constraint prevents duplicates)
-		await createPurchase({
-			subscriptionId: id,
-			organizationId,
-			userId,
-			customerId: customer as string,
-			type: "SUBSCRIPTION",
-			priceId,
-			status: subscription.status,
+		await tx.purchase.create({
+			data: {
+				subscriptionId: id,
+				organizationId,
+				userId,
+				customerId: customer as string,
+				type: "SUBSCRIPTION",
+				priceId,
+				status: subscription.status,
+			},
 		});
 
 		// 2. Create Member row (linking user to organization) if both IDs present
@@ -214,7 +216,7 @@ export async function handleSubscriptionUpdated(event: Stripe.Event) {
 
 	// If transitioning from canceled to active, reactivate Circle member
 	// Stripe's previous_attributes is a webhook-specific field not in base types
-	const previousAttributes = (event.data as Record<string, unknown>).previous_attributes as Record<string, unknown> | undefined;
+	const previousAttributes = (event.data as unknown as { previous_attributes?: Record<string, unknown> }).previous_attributes;
 	if (previousAttributes?.status === "canceled" && subscription.status === "active") {
 		// Reuse existingPurchase instead of fetching again
 		const purchase = existingPurchase ?? await getPurchaseBySubscriptionId(subscriptionId);

@@ -10,7 +10,12 @@
 		},
 		"./config": "./config.ts",
 		"./types": "./types.ts",
-		"./lib/helper": "./lib/helper.ts"
+		"./lib/helper": "./lib/helper.ts",
+		"./lib/circle-provisioning": "./lib/circle-provisioning.ts",
+		"./lib/customer": "./lib/customer.ts",
+		"./lib/provider-price-ids": "./lib/provider-price-ids.ts",
+		"./lib/stripe-dedup": "./lib/stripe-dedup.ts",
+		"./provider/stripe": "./provider/stripe/index.ts"
 	},
 	"scripts": {
 		"clean": "git clean -xdf .cache .turbo dist node_modules",
