@@ -2,7 +2,51 @@
 	"admin": {
 		"menu": {
 			"organizations": "Organizations",
-			"users": "Users"
+			"users": "Users",
+			"settings": "Settings"
+		},
+		"settings": {
+			"title": "Club Settings",
+			"loading": "Loading settings...",
+			"notifications": {
+				"success": "Settings have been saved.",
+				"error": "Could not save settings. Please try again."
+			},
+			"brand": {
+				"title": "Brand",
+				"primaryColor": "Primary colour",
+				"logo": "Logo",
+				"uploadLogo": "Upload logo",
+				"logoUploaded": "Logo uploaded successfully.",
+				"logoUploadError": "Could not upload logo. Please try again.",
+				"fontFamily": "Font family",
+				"selectFont": "Select a font..."
+			},
+			"contact": {
+				"title": "About / Contact",
+				"aboutText": "About text",
+				"email": "Contact email",
+				"phone": "Phone",
+				"address": "Address"
+			},
+			"social": {
+				"title": "Social Links",
+				"website": "Website",
+				"instagram": "Instagram",
+				"twitter": "Twitter",
+				"facebook": "Facebook"
+			},
+			"racing": {
+				"title": "Racing Provider",
+				"provider": "Provider",
+				"tier": "Subscription tier",
+				"managed": "Racing provider configuration is managed by the developer."
+			},
+			"billing": {
+				"title": "Billing",
+				"stripeProductId": "Stripe product ID",
+				"managed": "Billing configuration is managed via Stripe Dashboard."
+			}
 		},
 		"organizations": {
 			"backToList": "Back to organizations",
