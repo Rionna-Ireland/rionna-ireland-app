@@ -1,4 +1,4 @@
-import type { HorseStatus } from "../generated/client";
+import type { HorseStatus, Prisma } from "../generated/client";
 import { db } from "../client";
 
 export async function getHorses({
@@ -70,8 +70,8 @@ export async function createHorse(data: {
 	status?: HorseStatus;
 	bio?: string;
 	trainerNotes?: string;
-	photos?: unknown;
-	pedigree?: unknown;
+	photos?: Prisma.InputJsonValue;
+	pedigree?: Prisma.InputJsonValue;
 	ownershipBlurb?: string;
 	circleSpaceId?: string;
 	trainerId?: string;
@@ -91,22 +91,7 @@ export async function createHorse(data: {
 
 export async function updateHorse(
 	horseId: string,
-	data: {
-		name?: string;
-		slug?: string;
-		status?: HorseStatus;
-		bio?: string | null;
-		trainerNotes?: string | null;
-		photos?: unknown;
-		pedigree?: unknown;
-		ownershipBlurb?: string | null;
-		circleSpaceId?: string | null;
-		trainerId?: string | null;
-		sortOrder?: number;
-		publishedAt?: Date | null;
-		providerEntityId?: string | null;
-		providerLastSync?: Date | null;
-	},
+	data: Prisma.HorseUncheckedUpdateInput,
 ) {
 	return db.horse.update({
 		where: { id: horseId },

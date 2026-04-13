@@ -101,7 +101,7 @@ export function NewsList() {
 				accessorKey: "status",
 				header: t("admin.news.columns.status"),
 				cell: ({ row }) => (
-					<Badge variant={row.original.publishedAt ? "default" : "secondary"}>
+					<Badge status={row.original.publishedAt ? "success" : "warning"}>
 						{row.original.publishedAt
 							? t("admin.news.status.published")
 							: t("admin.news.status.draft")}

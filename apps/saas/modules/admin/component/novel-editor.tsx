@@ -7,14 +7,18 @@ import {
 	EditorCommand,
 	EditorCommandEmpty,
 	type EditorInstance,
-} from "novel";
-import {
 	handleCommandNavigation,
 	ImageResizer,
 	handleImageDrop,
 	handleImagePaste,
-	defaultExtensions,
-} from "novel/extensions";
+	StarterKit,
+	TiptapImage,
+	TiptapLink,
+	TiptapUnderline,
+	Placeholder,
+	TaskItem,
+	TaskList,
+} from "novel";
 
 interface NovelEditorProps {
 	initialContent?: JSONContent;
@@ -23,7 +27,17 @@ interface NovelEditorProps {
 }
 
 export function NovelEditor({ initialContent, onChange, onUploadImage }: NovelEditorProps) {
-	const extensions = [...defaultExtensions];
+	const extensions = [
+		StarterKit.configure({
+			heading: { levels: [1, 2, 3] },
+		}),
+		TiptapImage,
+		TiptapLink.configure({ openOnClick: false }),
+		TiptapUnderline,
+		Placeholder.configure({ placeholder: "Start writing..." }),
+		TaskList,
+		TaskItem.configure({ nested: true }),
+	];
 
 	const handleUpdate = (editor: EditorInstance) => {
 		const json = editor.getJSON() as JSONContent;
@@ -43,23 +57,26 @@ export function NovelEditor({ initialContent, onChange, onUploadImage }: NovelEd
 			<EditorContent
 				extensions={extensions}
 				initialContent={initialContent}
-				onUpdate={({ editor }) => handleUpdate(editor as unknown as EditorInstance)}
+				onUpdate={({ editor }: { editor: EditorInstance }) => handleUpdate(editor)}
 				editorProps={{
 					handleDOMEvents: {
-						keydown: (_view, event) => handleCommandNavigation(event),
+						keydown: (_view: unknown, event: KeyboardEvent) =>
+							handleCommandNavigation(event),
 					},
-					handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
-					handleDrop: (view, event, _slice, moved) =>
-						handleImageDrop(view, event, moved, uploadFn),
+					handlePaste: (view: unknown, event: ClipboardEvent) =>
+						handleImagePaste(view as never, event, uploadFn),
+					handleDrop: (view: unknown, event: DragEvent, _slice: unknown, moved: boolean) =>
+						handleImageDrop(view as never, event, moved, uploadFn),
 					attributes: {
-						class:
-							"prose prose-sm dark:prose-invert prose-headings:font-title focus:outline-none max-w-full min-h-[300px] px-4 py-3",
+						class: "prose prose-sm dark:prose-invert prose-headings:font-title focus:outline-none max-w-full min-h-[300px] px-4 py-3",
 					},
 				}}
 				slotAfter={<ImageResizer />}
 			>
 				<EditorCommand
-					onKeyDown={(e) => handleCommandNavigation(e)}
+					onKeyDown={(e: React.KeyboardEvent) =>
+						handleCommandNavigation(e.nativeEvent)
+					}
 					className="z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all"
 				>
 					<EditorCommandEmpty className="px-2 text-muted-foreground">

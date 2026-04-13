@@ -6,7 +6,6 @@ import { Spinner } from "@repo/ui";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card } from "@repo/ui/components/card";
-import { Checkbox } from "@repo/ui/components/checkbox";
 import {
 	Select,
 	SelectContent,
@@ -213,9 +212,11 @@ export function HorseList() {
 											onClick={(e) => e.stopPropagation()}
 											className="py-2"
 										>
-											<Checkbox
+											<input
+												type="checkbox"
 												checked={selectedIdsArray.includes(horse.id)}
-												onCheckedChange={() => toggleSelected(horse.id)}
+												onChange={() => toggleSelected(horse.id)}
+												className="size-4 rounded border-input"
 											/>
 										</TableCell>
 										<TableCell className="py-2">
@@ -236,7 +237,7 @@ export function HorseList() {
 										</TableCell>
 										<TableCell className="py-2">
 											<Badge
-												variant="secondary"
+												status="info"
 												className={
 													STATUS_COLORS[horse.status] ?? ""
 												}

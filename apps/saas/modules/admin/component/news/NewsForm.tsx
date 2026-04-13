@@ -64,8 +64,9 @@ export function NewsForm({ newsPostId }: NewsFormProps) {
 		}),
 	);
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const form = useForm<NewsFormValues>({
-		resolver: zodResolver(newsFormSchema),
+		resolver: zodResolver(newsFormSchema) as any,
 		defaultValues: {
 			title: "",
 			subtitle: "",
@@ -134,7 +135,7 @@ export function NewsForm({ newsPostId }: NewsFormProps) {
 					slug: values.slug || undefined,
 					featuredImageUrl: values.featuredImageUrl || null,
 					contentJson: contentJsonRef.current,
-					contentHtml: contentHtmlRef.current || null,
+					contentHtml: contentHtmlRef.current || undefined,
 					publish,
 					notifyMembersOnPublish: values.notifyMembersOnPublish,
 				});

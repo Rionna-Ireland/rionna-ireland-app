@@ -1,3 +1,5 @@
+import type { Prisma } from "../generated/client";
+
 import { db } from "../client";
 
 export async function getNewsPosts({
@@ -142,8 +144,8 @@ export async function createNewsPost(data: {
 	title: string;
 	subtitle?: string | null;
 	featuredImageUrl?: string | null;
-	contentJson?: unknown;
-	contentHtml?: string | null;
+	contentJson: Prisma.InputJsonValue;
+	contentHtml: string;
 	publishedAt?: Date | null;
 	notifyMembersOnPublish?: boolean;
 	authorUserId: string;
@@ -169,8 +171,8 @@ export async function updateNewsPost(
 		subtitle?: string | null;
 		slug?: string;
 		featuredImageUrl?: string | null;
-		contentJson?: unknown;
-		contentHtml?: string | null;
+		contentJson?: Prisma.InputJsonValue;
+		contentHtml?: string;
 		publishedAt?: Date | null;
 		notifyMembersOnPublish?: boolean;
 		notificationSentAt?: Date | null;

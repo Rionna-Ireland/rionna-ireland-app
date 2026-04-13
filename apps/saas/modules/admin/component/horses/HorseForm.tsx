@@ -98,8 +98,9 @@ export function HorseForm({ horseId }: HorseFormProps) {
 		| null
 		| undefined;
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const form = useForm<HorseFormValues>({
-		resolver: zodResolver(horseFormSchema),
+		resolver: zodResolver(horseFormSchema) as any,
 		defaultValues: {
 			name: "",
 			slug: "",

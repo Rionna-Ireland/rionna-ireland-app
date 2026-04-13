@@ -20,7 +20,7 @@ export const updateNewsPost = adminProcedure
 			slug: z.string().optional(),
 			featuredImageUrl: z.string().nullable().optional(),
 			contentJson: z.unknown().optional(),
-			contentHtml: z.string().nullable().optional(),
+			contentHtml: z.string().optional(),
 			publish: z.boolean().optional(),
 			notifyMembersOnPublish: z.boolean().optional(),
 		}),
@@ -47,7 +47,7 @@ export const updateNewsPost = adminProcedure
 			updateData.featuredImageUrl = input.featuredImageUrl;
 		}
 		if (input.contentJson !== undefined) {
-			updateData.contentJson = input.contentJson;
+			updateData.contentJson = input.contentJson as object;
 		}
 		if (input.contentHtml !== undefined) {
 			updateData.contentHtml = input.contentHtml;

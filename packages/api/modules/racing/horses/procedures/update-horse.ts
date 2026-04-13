@@ -54,7 +54,15 @@ export const updateHorse = adminProcedure
 			throw new ORPCError("NOT_FOUND", { message: "Horse not found" });
 		}
 
-		const { horseId, ...data } = input;
+		const { horseId, photos, pedigree, ...rest } = input;
+
+		const data: Record<string, unknown> = { ...rest };
+		if (photos !== undefined) {
+			data.photos = photos ?? [];
+		}
+		if (pedigree !== undefined) {
+			data.pedigree = pedigree;
+		}
 
 		return updateHorseQuery(horseId, data);
 	});
