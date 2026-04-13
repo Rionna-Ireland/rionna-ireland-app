@@ -10,7 +10,7 @@ import { config as i18nConfig, type Locale } from "@repo/i18n";
 import { logger } from "@repo/logs";
 import { sendEmail } from "@repo/mail";
 import { createWelcomeNotification } from "@repo/notifications";
-import { cancelSubscription } from "@repo/payments";
+import { cancelSubscription, deleteCircleMember } from "@repo/payments";
 import { getBaseUrl } from "@repo/utils";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -131,6 +131,27 @@ export const auth = betterAuth({
 								// oxlint-disable-next-line typescript/no-non-null-assertion -- This is a valid case
 								subscription.subscriptionId!,
 							);
+						}
+					}
+				}
+
+				// S1-04: Cascade user deletion to Circle member deletion
+				if (userId) {
+					const members = await db.member.findMany({
+						where: { userId },
+					});
+					for (const member of members) {
+						if (member.circleMemberId) {
+							try {
+								await deleteCircleMember(member.circleMemberId);
+							} catch (error) {
+								logger.error("Failed to delete Circle member during user deletion", {
+									userId,
+									memberId: member.id,
+									circleMemberId: member.circleMemberId,
+									error: error instanceof Error ? error.message : String(error),
+								});
+							}
 						}
 					}
 				}

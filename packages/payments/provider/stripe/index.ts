@@ -1,14 +1,20 @@
 import {
 	createPurchase,
-	deletePurchaseBySubscriptionId,
+	db,
 	getPurchaseBySubscriptionId,
 	updatePurchase,
 } from "@repo/database";
 import { logger } from "@repo/logs";
 import Stripe from "stripe";
 
+import {
+	deactivateCircleMember,
+	provisionCircleMember,
+	reactivateCircleMember,
+} from "../../lib/circle-provisioning";
 import { setCustomerIdToEntity } from "../../lib/customer";
 import { getPlanIdByProviderPriceId } from "../../lib/provider-price-ids";
+import { isEventDuplicate } from "../../lib/stripe-dedup";
 import type {
 	CancelSubscription,
 	CreateCheckoutLink,
@@ -122,6 +128,140 @@ export const cancelSubscription: CancelSubscription = async (id) => {
 	await stripeClient.subscriptions.cancel(id);
 };
 
+// ──────────────────────────────────────────────
+// Subscription lifecycle handlers (S1-04)
+// ──────────────────────────────────────────────
+
+export async function handleSubscriptionCreated(event: Stripe.Event) {
+	const subscription = event.data.object as Stripe.Subscription;
+	const { metadata, customer, items, id } = subscription;
+
+	const userId = metadata?.user_id || null;
+	const organizationId = metadata?.organization_id || null;
+
+	const priceId = items?.data[0].price?.id;
+	const planId = priceId ? getPlanIdByProviderPriceId(priceId) : null;
+
+	if (!planId || !priceId) {
+		throw new Error("Missing plan or price ID in subscription.created");
+	}
+
+	// Wrap Purchase + Member creation in a transaction to avoid orphaned rows
+	const member = await db.$transaction(async (tx) => {
+		// 1. Create Purchase (Layer 2: subscriptionId unique constraint prevents duplicates)
+		await createPurchase({
+			subscriptionId: id,
+			organizationId,
+			userId,
+			customerId: customer as string,
+			type: "SUBSCRIPTION",
+			priceId,
+			status: subscription.status,
+		});
+
+		// 2. Create Member row (linking user to organization) if both IDs present
+		if (userId && organizationId) {
+			const existingMember = await tx.member.findFirst({
+				where: { userId, organizationId },
+			});
+
+			if (existingMember) {
+				return existingMember;
+			}
+
+			return await tx.member.create({
+				data: {
+					userId,
+					organizationId,
+					role: "member",
+					createdAt: new Date(),
+				},
+			});
+		}
+
+		return null;
+	});
+
+	await setCustomerIdToEntity(customer as string, {
+		organizationId: organizationId ?? undefined,
+		userId: userId ?? undefined,
+	});
+
+	// 3. Provision Circle member (Layer 3: pre-call existence check)
+	if (member && !member.circleMemberId && userId && organizationId) {
+		await provisionCircleMember(
+			{ id: member.id, userId, organizationId },
+			event.id,
+		);
+	}
+}
+
+export async function handleSubscriptionUpdated(event: Stripe.Event) {
+	const subscription = event.data.object as Stripe.Subscription;
+	const subscriptionId = subscription.id;
+
+	const existingPurchase = await getPurchaseBySubscriptionId(subscriptionId);
+
+	if (existingPurchase) {
+		const priceId = subscription.items?.data[0].price?.id;
+
+		await updatePurchase({
+			id: existingPurchase.id,
+			status: subscription.status,
+			...(priceId ? { priceId } : {}),
+		});
+	}
+
+	// If transitioning from canceled to active, reactivate Circle member
+	// Stripe's previous_attributes is a webhook-specific field not in base types
+	const previousAttributes = (event.data as Record<string, unknown>).previous_attributes as Record<string, unknown> | undefined;
+	if (previousAttributes?.status === "canceled" && subscription.status === "active") {
+		// Reuse existingPurchase instead of fetching again
+		const purchase = existingPurchase ?? await getPurchaseBySubscriptionId(subscriptionId);
+		if (purchase?.userId) {
+			const member = await db.member.findFirst({
+				where: { userId: purchase.userId, organizationId: purchase.organizationId ?? undefined },
+			});
+			if (member?.circleMemberId && member.circleStatus === "deactivated") {
+				await reactivateCircleMember({
+					id: member.id,
+					circleMemberId: member.circleMemberId,
+				});
+			}
+		}
+	}
+}
+
+export async function handleSubscriptionDeleted(event: Stripe.Event) {
+	const subscription = event.data.object as Stripe.Subscription;
+
+	// Flip Purchase.status to "canceled" — DO NOT DELETE the row (D9 decision)
+	await db.purchase.updateMany({
+		where: { subscriptionId: subscription.id },
+		data: { status: "canceled" },
+	});
+
+	// Deactivate Circle member
+	const purchase = await db.purchase.findFirst({
+		where: { subscriptionId: subscription.id },
+	});
+	if (purchase?.userId) {
+		const member = await db.member.findFirst({
+			where: { userId: purchase.userId, organizationId: purchase.organizationId ?? undefined },
+		});
+		if (member?.circleMemberId && member.circleStatus === "active") {
+			await deactivateCircleMember({
+				id: member.id,
+				circleMemberId: member.circleMemberId,
+			});
+		}
+	}
+}
+
+// ──────────────────────────────────────────────
+// Webhook handler
+// ──────────────────────────────────────────────
+
 export const webhookHandler: WebhookHandler = async (req) => {
 	const stripeClient = getStripeClient();
 
@@ -148,6 +288,14 @@ export const webhookHandler: WebhookHandler = async (req) => {
 	}
 
 	try {
+		// Layer 1: StripeEventLog dedup — silently ignore duplicate deliveries
+		if (await isEventDuplicate(event.id, event.type)) {
+			return new Response(JSON.stringify({ received: true }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
+
 		switch (event.type) {
 			case "checkout.session.completed": {
 				const { mode, metadata, customer, id } = event.data.object;
@@ -185,54 +333,22 @@ export const webhookHandler: WebhookHandler = async (req) => {
 				break;
 			}
 			case "customer.subscription.created": {
-				const { metadata, customer, items, id } = event.data.object;
-
-				const priceId = items?.data[0].price?.id;
-				const planId = priceId ? getPlanIdByProviderPriceId(priceId) : null;
-
-				if (!planId || !priceId) {
-					return new Response("Missing plan or price ID.", {
-						status: 400,
-					});
-				}
-
-				await createPurchase({
-					subscriptionId: id,
-					organizationId: metadata?.organization_id || null,
-					userId: metadata?.user_id || null,
-					customerId: customer as string,
-					type: "SUBSCRIPTION",
-					priceId,
-					status: event.data.object.status,
-				});
-
-				await setCustomerIdToEntity(customer as string, {
-					organizationId: metadata?.organization_id,
-					userId: metadata?.user_id,
-				});
-
+				await handleSubscriptionCreated(event);
 				break;
 			}
 			case "customer.subscription.updated": {
-				const subscriptionId = event.data.object.id;
-
-				const existingPurchase = await getPurchaseBySubscriptionId(subscriptionId);
-
-				if (existingPurchase) {
-					const priceId = event.data.object.items?.data[0].price?.id;
-
-					await updatePurchase({
-						id: existingPurchase.id,
-						status: event.data.object.status,
-						...(priceId ? { priceId } : {}),
-					});
-				}
-
+				await handleSubscriptionUpdated(event);
 				break;
 			}
 			case "customer.subscription.deleted": {
-				await deletePurchaseBySubscriptionId(event.data.object.id);
-
+				await handleSubscriptionDeleted(event);
+				break;
+			}
+			case "invoice.payment_failed": {
+				// No-op per D9 — Stripe handles dunning
+				logger.info("invoice.payment_failed received — Stripe handles dunning", {
+					eventId: event.id,
+				});
 				break;
 			}
 
@@ -244,8 +360,13 @@ export const webhookHandler: WebhookHandler = async (req) => {
 
 		return new Response(null, { status: 204 });
 	} catch (error) {
-		return new Response(`Webhook error: ${error instanceof Error ? error.message : ""}`, {
-			status: 400,
+		logger.error("Webhook handler error", {
+			eventId: event.id,
+			eventType: event.type,
+			error: error instanceof Error ? error.message : String(error),
+		});
+		return new Response("Webhook processing failed", {
+			status: 500,
 		});
 	}
 };
