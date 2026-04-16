@@ -1,3 +1,9 @@
+import { resolve } from "node:path";
+import { config as loadEnv } from "dotenv";
+
+loadEnv({ path: resolve(__dirname, "../../.env.local"), override: false });
+loadEnv({ path: resolve(__dirname, "../../.env"), override: false });
+
 import { withContentCollections } from "@content-collections/next";
 import type { NextConfig } from "next";
 import nextIntlPlugin from "next-intl/plugin";

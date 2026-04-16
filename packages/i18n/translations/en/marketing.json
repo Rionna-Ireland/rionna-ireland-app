@@ -1,117 +1,145 @@
 {
-	"blog": {
-		"description": "Read the latest news from our company",
-		"title": "My awesome blog",
-		"back": "Back to blog"
-	},
-	"changelog": {
-		"description": "Stay up to date with the latest changes in our product.",
-		"title": "Changelog"
-	},
 	"contact": {
-		"description": "We are here to help you. Please use the form below to get in touch with us.",
+		"eyebrow": "Get in touch",
+		"title": "Say hello",
+		"description": "Questions about membership, the app, or what life inside the club is really like? We're here. Drop us a line and we'll get back to you.",
+		"emailLabel": "Email",
+		"phoneLabel": "Phone",
+		"addressLabel": "Address",
 		"form": {
 			"email": "Email",
 			"message": "Message",
 			"name": "Name",
 			"notifications": {
-				"error": "We are sorry, but we were unable to send your message. Please try again later.",
-				"success": "Your message has been sent successfully. We will get back to you as soon as possible."
+				"error": "We couldn't send your message. Please try again in a moment.",
+				"success": "Thanks — your message is on its way. We'll be back to you soon."
 			},
 			"submit": "Send message"
+		}
+	},
+	"about": {
+		"eyebrow": "About Rionna",
+		"title": "Opening the gates to a different kind of ownership.",
+		"description": "A modern, community-driven shared racehorse ownership club.",
+		"fallbackAbout": "Rionna is a shared racehorse ownership club built for a new generation of owners. We care as much about the horses as we do about the people following their journey — members who come from every corner of the racing world (and plenty who are brand new to it).\n\nWe believe ownership should feel personal, connected, and joyful. That the finish line isn't the only moment worth celebrating. That the sport gets better when it makes room for more voices.\n\nThis is the club we wanted to be part of. We hope you'll join us.",
+		"values": {
+			"openGates": {
+				"eyebrow": "Open the gates",
+				"title": "Room for more voices.",
+				"description": "Ownership has never been more accessible. We're breaking down the cultural, financial, and emotional barriers that kept racing feeling closed off."
+			},
+			"leadWithCare": {
+				"eyebrow": "Lead with care",
+				"title": "Horse first, always.",
+				"description": "Welfare is the baseline — from the yard through retirement — and the same care shapes how we look after our members."
+			},
+			"findJoy": {
+				"eyebrow": "Find the joy in it",
+				"title": "Share the moments.",
+				"description": "Parade ring nerves, the roar in the stands, a winner in the yard at dawn. Ownership is the excuse — the shared moments are the point."
+			}
 		},
-		"title": "Contact us"
+		"cta": "Become a member"
 	},
-	"documentation": {
-		"title": "Documentation"
-	},
-	"faq": {
-		"description": "Do you have any questions? We have got you covered.",
-		"title": "Frequently asked questions",
-		"items": {
-			"refundPolicy": {
-				"question": "What is the refund policy?",
-				"answer": "We offer a 30-day money-back guarantee if you're not happy with our product."
+	"membership": {
+		"eyebrow": "Membership",
+		"title": "Join the club.",
+		"description": "One membership. All the horses, all the races, the community, the moments. No tiers, no small print, cancel any time.",
+		"plan": {
+			"title": "Full membership",
+			"price": "€45",
+			"interval": "per month",
+			"priceNote": "Billed monthly. Cancel any time from your account.",
+			"features": {
+				"stables": "Track every horse in the stable — bios, photos, trainer notes",
+				"liveRaceData": "Live entries, declarations, and results powered by Timeform",
+				"community": "Private members' community — posts, polls, trainer Q&A, events",
+				"pushAlerts": "Real-time push alerts when horses are declared or run",
+				"trainerUpdates": "Trainer updates straight from the yard",
+				"exclusiveNews": "Members-only news, interviews, and behind-the-scenes content"
 			},
-			"cancelSubscription": {
-				"question": "How do I cancel my subscription?",
-				"answer": "You can cancel your subscription by visiting the billing page."
-			},
-			"changePlan": {
-				"question": "Can I change my plan?",
-				"answer": "Yes, you can change your plan at any time by visiting the billing page."
-			},
-			"freeTrial": {
-				"question": "Do you offer a free trial?",
-				"answer": "Yes, we offer a 14-day free trial."
+			"cta": "Join now"
+		},
+		"faq": {
+			"title": "Questions?",
+			"items": {
+				"whatIncluded": {
+					"question": "What's included with a membership?",
+					"answer": "Everything. Access to the mobile app (Stables, Pulse, Community), real-time push alerts, members-only news, and the full Circle community. No tiered plans to navigate."
+				},
+				"howToCancel": {
+					"question": "How do I cancel?",
+					"answer": "From the website account page — one click, no calls, no forms. Your membership stays active until the end of the billing period."
+				},
+				"tierChanges": {
+					"question": "Are there different membership tiers?",
+					"answer": "Not for now. One flat membership for everyone, which keeps the community simple and the ownership experience consistent."
+				},
+				"appSupport": {
+					"question": "Which devices does the app work on?",
+					"answer": "iOS and Android, from the App Store and Play Store. Billing stays on the website — nothing goes through Apple or Google."
+				}
 			}
 		}
+	},
+	"news": {
+		"eyebrow": "News",
+		"title": "The latest from the yard.",
+		"description": "Race previews, results, interviews, and stories from the stable.",
+		"empty": "No posts yet — check back soon.",
+		"back": "Back to news",
+		"byline": "By {name}",
+		"share": "Share"
 	},
 	"home": {
 		"hero": {
-			"new": "New:",
-			"featureBadge": "Amazing feature of your SaaS",
-			"title": "Your revolutionary SaaS built with Next.js",
-			"subtitle": "This is a demo application built with supastarter. It will save you a lot of time and effort building your next SaaS.",
-			"getStarted": "Get started",
-			"documentation": "Documentation",
-			"imageAlt": "Our application",
-			"builtWith": "Built & shipped with these awesome tools"
+			"eyebrow": "Modern shared racehorse ownership",
+			"title": "Open the gates. Own the moments.",
+			"subtitle": "A modern racehorse ownership club built around a stable full of Flat and National Hunt horses — and a community of people who love being close to the action.",
+			"joinCta": "Become a member",
+			"learnMoreCta": "Learn more",
+			"membersNote": "Already a member?",
+			"signInLink": "Sign in"
+		},
+		"horses": {
+			"eyebrow": "Our stable",
+			"title": "Meet the horses.",
+			"description": "Every member follows every horse — from the yard, through the race, to the post-run debrief.",
+			"trainerLabel": "Trained by {name}",
+			"ctaMembership": "See the full stable"
 		},
 		"features": {
-			"badge": "Incredible features",
-			"title": "Features your clients will love",
-			"description": "In this section you can showcase all the features of your SaaS provides and how they can benefit your clients.",
-			"feature1": {
-				"title": "Feature 1",
-				"subtitle": "Do more with our amazing SaaS.",
-				"description": "This is a brilliant feature. And below you can see some reasons why. This is basically just a dummy text.",
-				"benefit1": {
-					"title": "Benefit 1",
-					"description": "This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text."
-				},
-				"benefit2": {
-					"title": "Benefit 2",
-					"description": "This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text."
-				},
-				"benefit3": {
-					"title": "Benefit 3",
-					"description": "This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text."
-				}
+			"eyebrow": "Inside the club",
+			"title": "Everything members get.",
+			"description": "Ownership, made present. The tools and the moments that make it feel live.",
+			"stables": {
+				"title": "Our Stables",
+				"description": "Photos, bios, trainer updates, race history — the full profile of every horse in the club, always up to date."
 			},
-			"feature2": {
-				"title": "Feature 2",
-				"subtitle": "Your SaaS can also do this.",
-				"description": "Another dummy text for another feature.",
-				"benefit1": {
-					"title": "Benefit 1",
-					"description": "This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text."
-				},
-				"benefit2": {
-					"title": "Benefit 2",
-					"description": "This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text."
-				},
-				"benefit3": {
-					"title": "Benefit 3",
-					"description": "This is an awesome benefit. And below you can see some reasons why. This is basically just a dummy text."
-				}
-			}
-		}
-	},
-	"newsletter": {
-		"email": "Email",
-		"hints": {
-			"error": {
-				"message": "Could not subscribe to newsletter. Please try again later."
+			"pulse": {
+				"title": "Pulse dashboard",
+				"description": "What's next, what just happened. Declarations, results, and the latest news in one place when you open the app."
 			},
-			"success": {
-				"message": "Thank you for subscribing to our newsletter. We will keep you posted.",
-				"title": "Subscribed"
+			"community": {
+				"title": "Members' community",
+				"description": "Private discussion for every horse, trainer Q&A, events, and the conversations you'd only get sitting together at the track."
+			},
+			"alerts": {
+				"title": "Real-time alerts",
+				"description": "Push notifications the moment a horse is declared, a result is in, or a trainer drops an update."
 			}
 		},
-		"submit": "Subscribe",
-		"subtitle": "Be among the first to get access to supastarter.nextjs.",
-		"title": "Get early access"
+		"news": {
+			"eyebrow": "Latest news",
+			"title": "From the yard.",
+			"viewAll": "View all"
+		},
+		"finalCta": {
+			"eyebrow": "Join the club",
+			"title": "Ownership, made personal.",
+			"description": "One flat membership. All the horses, all the races, all the moments.",
+			"cta": "Become a member"
+		}
 	},
 	"notFound": {
 		"code": "404",
@@ -121,22 +149,21 @@
 	},
 	"common": {
 		"footer": {
-			"blog": "Blog",
-			"features": "Features",
-			"pricing": "Pricing",
+			"tagline": "A modern shared racehorse ownership club. Open the gates. Own the moments.",
+			"explore": "Explore",
+			"legal": "Legal",
 			"privacyPolicy": "Privacy policy",
 			"termsAndConditions": "Terms and conditions",
-			"builtWith": "Built with supastarter"
+			"cookiePolicy": "Cookie policy",
+			"poweredBy": "Powered by Rionna"
 		},
 		"menu": {
-			"blog": "Blog",
-			"changelog": "Changelog",
+			"about": "About",
+			"membership": "Membership",
+			"news": "News",
 			"contact": "Contact",
-			"dashboard": "Dashboard",
-			"docs": "Docs",
-			"faq": "FAQ",
-			"login": "Login",
-			"pricing": "Pricing"
+			"login": "Sign in",
+			"join": "Join"
 		},
 		"aria": {
 			"menu": "Menu",

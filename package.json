@@ -39,6 +39,7 @@
 			"prisma",
 			"prisma-zod-generator",
 			"sharp"
-		]
+		],
+		"patchedDependencies": {}
 	}
 }

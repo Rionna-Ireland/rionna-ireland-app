@@ -1,68 +1,53 @@
-"use client";
-
 import { config } from "@config";
+import { LocaleLink } from "@i18n/routing";
 import { Button } from "@repo/ui/components/button";
 import { ArrowRightIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
-
-import heroImageDark from "../../../public/images/hero-image-dark.png";
-import heroImage from "../../../public/images/hero-image.png";
 
 export function HeroSection() {
-	const t = useTranslations();
+	const t = useTranslations("home.hero");
 
 	return (
-		<div className="relative max-w-full overflow-x-hidden bg-linear-to-t from-background via-primary/5 to-background">
-			<div className="py-8 md:py-16 relative z-20 container text-center">
-				<div className="mb-4 flex justify-center">
-					<div className="px-3 py-1 font-normal text-sm flex flex-wrap items-center justify-center rounded-full bg-muted p-px text-foreground">
-						<span className="gap-2 font-semibold flex items-center rounded-full">
-							{t("home.hero.new")}
-						</span>
-						<span className="ml-1 font-medium block">
-							{t("home.hero.featureBadge")}
-						</span>
-					</div>
-				</div>
+		<section className="relative overflow-hidden">
+			<div className="absolute -top-32 -left-32 size-[520px] rounded-full bg-[#F2D6F4] blur-3xl opacity-70 dark:opacity-30" />
+			<div className="absolute -bottom-32 -right-32 size-[460px] rounded-full bg-[#DAEDF3] blur-3xl opacity-70 dark:opacity-30" />
 
-				<h1 className="font-medium text-4xl md:text-5xl lg:text-6xl xl:text-7xl leading-tighter max-w-3xl mx-auto text-balance text-foreground">
-					{t("home.hero.title")}
-				</h1>
-
-				<p className="mt-2 text-sm sm:text-lg max-w-3xl mx-auto text-balance text-foreground/60">
-					{t("home.hero.subtitle")}
-				</p>
-
-				<div className="mt-4 gap-2 flex items-center justify-center">
-					<Button size="lg" variant="primary" asChild>
-						<a href={config.saasUrl}>
-							{t("home.hero.getStarted")}
-							<ArrowRightIcon className="ml-2 size-4" />
-						</a>
-					</Button>
-					{config.docsUrl && (
-						<Button variant="ghost" size="lg" asChild>
-							<a href={config.docsUrl}>{t("home.hero.documentation")}</a>
+			<div className="container relative z-10 py-20 md:py-28 lg:py-36">
+				<div className="max-w-4xl">
+					<span className="font-mono text-xs tracking-[0.22em] uppercase text-foreground/70">
+						{t("eyebrow")}
+					</span>
+					<h1 className="mt-6 font-display font-medium text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[0.95] text-foreground text-balance">
+						{t("title")}
+					</h1>
+					<p className="mt-6 max-w-2xl text-lg md:text-xl text-foreground/70 leading-relaxed">
+						{t("subtitle")}
+					</p>
+					<div className="mt-10 flex flex-wrap gap-3">
+						<Button size="lg" variant="primary" asChild>
+							<LocaleLink href="/membership">
+								{t("joinCta")}
+								<ArrowRightIcon className="ml-2 size-4" />
+							</LocaleLink>
 						</Button>
+						<Button size="lg" variant="ghost" asChild>
+							<LocaleLink href="/about">{t("learnMoreCta")}</LocaleLink>
+						</Button>
+					</div>
+
+					{config.saasUrl && (
+						<p className="mt-8 font-mono text-xs tracking-[0.18em] uppercase text-foreground/50">
+							{t("membersNote")}{" "}
+							<a
+								href={config.saasUrl}
+								className="underline underline-offset-4 hover:text-foreground"
+							>
+								{t("signInLink")}
+							</a>
+						</p>
 					)}
 				</div>
-
-				<div className="mt-12 lg:mt-16 lg:flex-1 p-4 mx-auto rounded-4xl border border-primary/10 bg-primary/5">
-					<Image
-						src={heroImage}
-						alt={t("home.hero.imageAlt")}
-						className="block rounded-xl dark:hidden"
-						priority
-					/>
-					<Image
-						src={heroImageDark}
-						alt={t("home.hero.imageAlt")}
-						className="hidden rounded-xl dark:block"
-						priority
-					/>
-				</div>
 			</div>
-		</div>
+		</section>
 	);
 }

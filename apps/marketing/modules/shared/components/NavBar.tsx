@@ -51,33 +51,21 @@ export function NavBar() {
 		href: string;
 	}[] = [
 		{
-			label: t("common.menu.pricing"),
-			href: "/#pricing",
+			label: t("common.menu.about"),
+			href: "/about",
 		},
 		{
-			label: t("common.menu.faq"),
-			href: "/#faq",
+			label: t("common.menu.membership"),
+			href: "/membership",
 		},
 		{
-			label: t("common.menu.blog"),
-			href: "/blog",
-		},
-		{
-			label: t("common.menu.changelog"),
-			href: "/changelog",
+			label: t("common.menu.news"),
+			href: "/news",
 		},
 		{
 			label: t("common.menu.contact"),
 			href: "/contact",
 		},
-		...(config.docsUrl
-			? [
-					{
-						label: t("common.menu.docs"),
-						href: config.docsUrl,
-					},
-				]
-			: []),
 	];
 
 	const isMenuItemActive = (href: string) => localePathname.startsWith(href);
@@ -178,12 +166,15 @@ export function NavBar() {
 						</Sheet>
 
 						{config.saasUrl && (
-							<Button className="lg:flex hidden" asChild variant="secondary">
+							<Button className="lg:flex hidden" asChild variant="ghost">
 								<NextLink href={config.saasUrl} prefetch>
 									{t("common.menu.login")}
 								</NextLink>
 							</Button>
 						)}
+						<Button className="lg:flex hidden" asChild variant="primary">
+							<LocaleLink href="/membership">{t("common.menu.join")}</LocaleLink>
+						</Button>
 					</div>
 				</div>
 			</div>

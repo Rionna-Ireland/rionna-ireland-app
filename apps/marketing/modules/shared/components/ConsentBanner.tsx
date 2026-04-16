@@ -26,8 +26,8 @@ export function ConsentBanner() {
 				<CookieIcon className="size-6 text-5xl mt-1 block shrink-0 text-primary/60" />
 				<div>
 					<p className="text-sm leading-normal">
-						This site doesn't use cookies yet, but we added this banner to demo it to
-						you.
+						We use essential cookies to keep the site running and optional ones to
+						help us make it better. You can change your mind any time.
 					</p>
 					<div className="mt-4 gap-2 flex">
 						<Button
