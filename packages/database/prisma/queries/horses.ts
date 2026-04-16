@@ -161,3 +161,40 @@ export async function getPublishedHorseById(horseId: string) {
 		},
 	});
 }
+
+// Next declared entry across all org horses
+export async function getNextRun(organizationId: string) {
+	return db.raceEntry.findFirst({
+		where: {
+			organizationId,
+			status: "DECLARED",
+			race: { postTime: { gte: new Date() } },
+		},
+		include: {
+			horse: true,
+			race: { include: { meeting: { include: { course: true } } } },
+			jockey: true,
+		},
+		orderBy: { race: { postTime: "asc" } },
+	});
+}
+
+// Latest finished results
+export async function getLatestResults(
+	organizationId: string,
+	limit: number = 3,
+) {
+	return db.raceEntry.findMany({
+		where: {
+			organizationId,
+			status: "RAN",
+			finishingPosition: { not: null },
+		},
+		include: {
+			horse: true,
+			race: { include: { meeting: { include: { course: true } } } },
+		},
+		orderBy: { race: { postTime: "desc" } },
+		take: limit,
+	});
+}
