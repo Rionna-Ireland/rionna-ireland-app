@@ -9,6 +9,7 @@
 
 import { db, parseOrgMetadata } from "@repo/database";
 import { logger } from "@repo/logs";
+import { buildCircleCommunityTargetUrl } from "@repo/payments/lib/circle";
 
 import { sendPush } from "../push/service";
 
@@ -47,6 +48,15 @@ export async function handleCircleWebhook(request: Request): Promise<Response> {
 			return new Response("OK", { status: 200 });
 		}
 
+		const communityTargetUrl
+			= typeof body.post_id === "number" || typeof body.post_id === "string"
+				? buildCircleCommunityTargetUrl({
+						communityDomain: matchedOrg.communityDomain,
+						realPath: `/posts/${body.post_id}`,
+						mockPath: `/__mock/ui/member/posts/${body.post_id}`,
+					})
+				: null;
+
 		await sendPush({
 			organizationId: matchedOrg.id,
 			triggerType: "TRAINER_POST",
@@ -55,11 +65,7 @@ export async function handleCircleWebhook(request: Request): Promise<Response> {
 			body: body.title ?? "Your trainer posted an update",
 			data: {
 				screen: "community",
-				...(matchedOrg.communityDomain && body.post_id
-					? {
-							url: `https://${matchedOrg.communityDomain}/posts/${body.post_id}`,
-						}
-					: {}),
+				...(communityTargetUrl ? { url: communityTargetUrl } : {}),
 			},
 		});
 
