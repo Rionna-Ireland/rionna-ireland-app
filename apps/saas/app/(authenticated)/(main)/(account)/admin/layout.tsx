@@ -16,7 +16,8 @@ export default async function AdminLayout({ children }: PropsWithChildren) {
 		redirect("/login");
 	}
 
-	if (session.user?.role !== "admin") {
+	// D28: platform admins are allowed into /admin while impersonating an org.
+	if (session.user?.role !== "admin" && session.user?.role !== "platformAdmin") {
 		redirect("/");
 	}
 

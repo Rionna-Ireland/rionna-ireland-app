@@ -133,6 +133,22 @@ export const cancelSubscription: CancelSubscription = async (id) => {
 // Subscription lifecycle handlers (S1-04)
 // ──────────────────────────────────────────────
 
+// D29: dedicated error class so the handler can distinguish a uniqueness
+// violation (cancel the subscription, return 200) from a transient DB failure
+// (let Stripe retry).
+class D29ViolationError extends Error {
+	constructor(
+		public readonly userId: string,
+		public readonly existingOrganizationId: string,
+		public readonly attemptedOrganizationId: string,
+	) {
+		super(
+			`D29 violation: user ${userId} already a member of organization ${existingOrganizationId}`,
+		);
+		this.name = "D29ViolationError";
+	}
+}
+
 export async function handleSubscriptionCreated(event: Stripe.Event) {
 	const subscription = event.data.object as Stripe.Subscription;
 	const { metadata, customer, items, id } = subscription;
@@ -155,49 +171,114 @@ export async function handleSubscriptionCreated(event: Stripe.Event) {
 
 	// Wrap Purchase + Member creation in a transaction to avoid orphaned rows.
 	// The purchase is upserted so replays can safely resume after partial failure.
-	const member = await db.$transaction(async (tx) => {
-		await tx.purchase.upsert({
-			where: { subscriptionId: id },
-			create: {
-				subscriptionId: id,
-				organizationId,
-				userId,
-				customerId: customer as string,
-				type: "SUBSCRIPTION",
-				priceId,
-				status: subscription.status,
-			},
-			update: {
-				organizationId,
-				userId,
-				customerId: customer as string,
-				type: "SUBSCRIPTION",
-				priceId,
-				status: subscription.status,
-			},
-		});
-
-		// 2. Create Member row (linking user to organization) if both IDs present
-		if (userId && organizationId) {
-			return tx.member.upsert({
-				where: {
-					organizationId_userId: {
-						organizationId,
-						userId,
-					},
-				},
-				update: {},
+	let member: Awaited<ReturnType<typeof db.member.upsert>> | null = null;
+	try {
+		member = await db.$transaction(async (tx) => {
+			await tx.purchase.upsert({
+				where: { subscriptionId: id },
 				create: {
-					userId,
+					subscriptionId: id,
 					organizationId,
-					role: "member",
-					createdAt: new Date(),
+					userId,
+					customerId: customer as string,
+					type: "SUBSCRIPTION",
+					priceId,
+					status: subscription.status,
+				},
+				update: {
+					organizationId,
+					userId,
+					customerId: customer as string,
+					type: "SUBSCRIPTION",
+					priceId,
+					status: subscription.status,
 				},
 			});
-		}
 
-		return null;
-	});
+			// 2. Create Member row (linking user to organization) if both IDs present
+			if (userId && organizationId) {
+				// D29 recheck: defence-in-depth in case a checkout was created outside
+				// `createCheckoutLink` (which already enforces this). Only blocks NEW
+				// memberships in a different org — re-subscribing to the same org is fine.
+				const user = await tx.user.findUnique({
+					where: { id: userId },
+					select: { role: true },
+				});
+
+				if (user?.role !== "platformAdmin") {
+					const conflictingMembership = await tx.member.findFirst({
+						where: {
+							userId,
+							organizationId: { not: organizationId },
+						},
+						select: { id: true, organizationId: true },
+					});
+
+					if (conflictingMembership) {
+						throw new D29ViolationError(
+							userId,
+							conflictingMembership.organizationId,
+							organizationId,
+						);
+					}
+				}
+
+				return tx.member.upsert({
+					where: {
+						organizationId_userId: {
+							organizationId,
+							userId,
+						},
+					},
+					update: {},
+					create: {
+						userId,
+						organizationId,
+						role: "member",
+						createdAt: new Date(),
+					},
+				});
+			}
+
+			return null;
+		});
+	} catch (error) {
+		if (error instanceof D29ViolationError) {
+			// User cannot legitimately become a member here. Cancel the Stripe
+			// subscription so the customer stops being billed, mark a rejected
+			// Purchase row for ops visibility, and return cleanly so Stripe does
+			// NOT retry (which would re-trigger the same violation forever).
+			logger.error("D29 violation: cancelling subscription", {
+				userId: error.userId,
+				existingOrganizationId: error.existingOrganizationId,
+				attemptedOrganizationId: error.attemptedOrganizationId,
+				subscriptionId: id,
+			});
+			try {
+				await cancelSubscription(id);
+			} catch (cancelError) {
+				logger.error("Failed to cancel subscription after D29 violation", {
+					subscriptionId: id,
+					error: cancelError instanceof Error ? cancelError.message : String(cancelError),
+				});
+			}
+			await db.purchase.upsert({
+				where: { subscriptionId: id },
+				create: {
+					subscriptionId: id,
+					organizationId,
+					userId,
+					customerId: customer as string,
+					type: "SUBSCRIPTION",
+					priceId,
+					status: "rejected_d29",
+				},
+				update: { status: "rejected_d29" },
+			});
+			return;
+		}
+		throw error;
+	}
 
 	// 3. Provision Circle member (Layer 3: pre-call existence check)
 	if (member && !member.circleMemberId && userId && organizationId) {

@@ -172,6 +172,13 @@ export const auth = betterAuth({
 				type: "string",
 				required: false,
 			},
+			// D28: "platformAdmin" gives access to /platform (cross-org tooling).
+			// "admin" is the better-auth global admin role used by /admin. Both are
+			// stored in the User.role column managed by better-auth's admin() plugin.
+			role: {
+				type: "string",
+				required: false,
+			},
 		},
 		deleteUser: {
 			enabled: true,

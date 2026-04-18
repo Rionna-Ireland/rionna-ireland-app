@@ -2,6 +2,7 @@
 
 import { useSession } from "@auth/hooks/use-session";
 import { useActiveOrganization } from "@organizations/hooks/use-active-organization";
+import { useOrganizationListQuery } from "@organizations/lib/api";
 import { config as authConfig } from "@repo/auth/config";
 import { config as paymentsConfig } from "@repo/payments/config";
 import {
@@ -277,7 +278,16 @@ export function NavBar() {
 	const pathname = usePathname();
 	const { user } = useSession();
 	const { activeOrganization, isOrganizationAdmin } = useActiveOrganization();
+	const { data: organizationList } = useOrganizationListQuery();
 	const { isCollapsed, toggleCollapsed } = useSidebar();
+
+	// D6 (amended): the org-switcher stays hidden for the typical single-org member.
+	// It surfaces only when (a) the caller is the platform admin (D28) or (b) they
+	// have memberships in 2+ orgs and need a way to choose between them.
+	const isPlatformAdmin = user?.role === "platformAdmin";
+	const showOrganizationSelect =
+		authConfig.organizations.enable &&
+		(isPlatformAdmin || (organizationList?.length ?? 0) >= 2);
 	const isMobile = useIsMobile();
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -457,24 +467,23 @@ export function NavBar() {
 							</div>
 						</div>
 
-						{authConfig.organizations.enable &&
-							!authConfig.organizations.hideOrganization && (
-								<>
-									{!isCollapsedEffective && (
-										<span className="md:hidden opacity-30">
-											<ChevronRightIcon className="size-4" />
-										</span>
-									)}
+						{showOrganizationSelect && (
+							<>
+								{!isCollapsedEffective && (
+									<span className="md:hidden opacity-30">
+										<ChevronRightIcon className="size-4" />
+									</span>
+								)}
 
-									<OrganzationSelect
-										className={cn(
-											isCollapsedEffective ? "md:mt-2" : "md:mt-3 md:mb-1.5",
-											isCollapsedEffective && "md:flex md:justify-center",
-										)}
-										collapsed={isCollapsedEffective}
-									/>
-								</>
-							)}
+								<OrganzationSelect
+									className={cn(
+										isCollapsedEffective ? "md:mt-2" : "md:mt-3 md:mb-1.5",
+										isCollapsedEffective && "md:flex md:justify-center",
+									)}
+									collapsed={isCollapsedEffective}
+								/>
+							</>
+						)}
 					</div>
 
 					<div className="mr-0 gap-2 md:hidden ml-auto flex items-center justify-end">

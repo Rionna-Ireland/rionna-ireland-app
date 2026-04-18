@@ -7,6 +7,7 @@ import { pushRouter } from "../modules/push/router";
 import { notificationsRouter } from "../modules/notifications/router";
 import { organizationsRouter } from "../modules/organizations/router";
 import { paymentsRouter } from "../modules/payments/router";
+import { platformRouter } from "../modules/platform/router";
 import { horsesPublicRouter } from "../modules/racing/horses/public-router";
 import { settingsRouter } from "../modules/settings/router";
 import { usersRouter } from "../modules/users/router";
@@ -20,6 +21,7 @@ export const router = publicProcedure.router({
 	organizations: organizationsRouter,
 	users: usersRouter,
 	payments: paymentsRouter,
+	platform: platformRouter,
 	push: pushRouter,
 	notifications: notificationsRouter,
 	settings: settingsRouter,

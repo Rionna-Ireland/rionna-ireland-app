@@ -1,4 +1,5 @@
 import { getOrganizationList, getSession } from "@auth/lib/server";
+import { PlatformImpersonationBanner } from "@platform/components/PlatformImpersonationBanner";
 import { listPurchases } from "@repo/api/modules/payments/procedures/list-purchases";
 import { config as authConfig } from "@repo/auth/config";
 import { config as paymentsConfig } from "@repo/payments/config";
@@ -14,9 +15,14 @@ export default async function MainLayout({ children }: PropsWithChildren) {
 		redirect("/login");
 	}
 
+	// D28: platform admins bypass subscription / onboarding / requireOrganization gates.
+	// Their primary surface is /platform; if they land here without an impersonated org,
+	// send them back there.
+	const isPlatformAdmin = session.user.role === "platformAdmin";
+
 	// Subscription check BEFORE onboarding (per D9: subscribe → then onboard)
 	// Billing is user-scoped (billingAttachedTo: "user"), so query by userId not organizationId
-	if (paymentsConfig.requireActiveSubscription) {
+	if (!isPlatformAdmin && paymentsConfig.requireActiveSubscription) {
 		const purchases = await listPurchases.callable({
 			context: { headers: await headers() },
 		})({});
@@ -28,7 +34,7 @@ export default async function MainLayout({ children }: PropsWithChildren) {
 		}
 	}
 
-	if (authConfig.users.enableOnboarding && !session.user.onboardingComplete) {
+	if (!isPlatformAdmin && authConfig.users.enableOnboarding && !session.user.onboardingComplete) {
 		redirect("/onboarding");
 	}
 
@@ -40,9 +46,20 @@ export default async function MainLayout({ children }: PropsWithChildren) {
 			organizations[0];
 
 		if (!organization) {
-			redirect("/new-organization");
+			// Platform admins may have no Member rows but still carry an
+			// `activeOrganizationId` from impersonation — let them through.
+			if (isPlatformAdmin && session?.session.activeOrganizationId) {
+				// fall through
+			} else {
+				redirect(isPlatformAdmin ? "/platform" : "/new-organization");
+			}
 		}
 	}
 
-	return children;
+	return (
+		<>
+			<PlatformImpersonationBanner />
+			{children}
+		</>
+	);
 }

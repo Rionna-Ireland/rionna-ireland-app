@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/client";
-import { getOrganizationById } from "@repo/database";
+import { db, getOrganizationById } from "@repo/database";
 import { logger } from "@repo/logs";
 import {
 	createCheckoutLink as createCheckoutLinkFn,
@@ -36,6 +36,27 @@ export const createCheckoutLink = protectedProcedure
 			input: { planId, redirectUrl, type, interval, organizationId },
 			context: { user },
 		}) => {
+			// D29: a user may hold the "member" role in at most one organization.
+			// Block checkout if they already have ANY Member row (regardless of role)
+			// targeting a different org. Platform admins are exempt — they may shop
+			// across orgs while impersonating.
+			if (user.role !== "platformAdmin") {
+				const existingMembership = await db.member.findFirst({
+					where: {
+						userId: user.id,
+						...(organizationId ? { organizationId: { not: organizationId } } : {}),
+					},
+					select: { id: true, organizationId: true, role: true },
+				});
+
+				if (existingMembership) {
+					throw new ORPCError("CONFLICT", {
+						message:
+							"This account is already a member of another club. Please use a different email to join a new club.",
+					});
+				}
+			}
+
 			// Checkout happens before the webhook creates the Member row, so a
 			// pre-existing org membership cannot be required here.
 			const customerId = await getCustomerIdFromEntity({
