@@ -16,6 +16,7 @@ import {
 	getCircleCommunityBaseUrl,
 	getCircleMode,
 } from "@repo/payments/lib/circle";
+import { z } from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
 
@@ -26,10 +27,57 @@ export const getSessionToken = protectedProcedure
 		tags: ["Circle"],
 		summary: "Get Circle session token for authenticated user",
 	})
-	.handler(async ({ context: { session, user } }) => {
-		const organizationId = session.activeOrganizationId;
-		if (!organizationId) {
-			throw new ORPCError("BAD_REQUEST", { message: "No active organization" });
+	.input(
+		z.object({
+			organizationId: z.string().optional(),
+		}),
+	)
+	.handler(async ({ input, context: { session, user } }) => {
+		const requestedOrganizationId = input.organizationId?.trim() || null;
+		let organizationId = session.activeOrganizationId;
+
+		async function activateOrganization(nextOrganizationId: string) {
+			const membership = await db.member.findFirst({
+				where: {
+					userId: user.id,
+					organizationId: nextOrganizationId,
+				},
+				select: { id: true },
+			});
+
+			if (!membership) {
+				throw new ORPCError("FORBIDDEN", { message: "User is not a member of the requested organization" });
+			}
+
+			await db.$transaction([
+				db.user.update({
+					where: { id: user.id },
+					data: { lastActiveOrganizationId: nextOrganizationId },
+				}),
+				db.session.update({
+					where: { id: session.id },
+					data: { activeOrganizationId: nextOrganizationId },
+				}),
+			]);
+
+			return nextOrganizationId;
+		}
+
+		if (requestedOrganizationId && requestedOrganizationId !== organizationId) {
+			organizationId = await activateOrganization(requestedOrganizationId);
+		}
+		else if (!organizationId) {
+			const persistedUser = await db.user.findUnique({
+				where: { id: user.id },
+				select: { lastActiveOrganizationId: true },
+			});
+			const fallbackOrganizationId = persistedUser?.lastActiveOrganizationId || null;
+
+			if (!fallbackOrganizationId) {
+				throw new ORPCError("BAD_REQUEST", { message: "No active organization" });
+			}
+
+			organizationId = await activateOrganization(fallbackOrganizationId);
 		}
 
 		const org = await db.organization.findUnique({
