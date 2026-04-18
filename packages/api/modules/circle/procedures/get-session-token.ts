@@ -9,8 +9,13 @@
  */
 
 import { ORPCError } from "@orpc/server";
-import { db } from "@repo/database";
-import { createCircleService } from "@repo/payments/lib/circle";
+import { db, parseOrgMetadata } from "@repo/database";
+import {
+	buildCircleCommunityTargetUrl,
+	createCircleService,
+	getCircleCommunityBaseUrl,
+	getCircleMode,
+} from "@repo/payments/lib/circle";
 
 import { protectedProcedure } from "../../../orpc/procedures";
 
@@ -36,6 +41,16 @@ export const getSessionToken = protectedProcedure
 
 		const service = createCircleService(org.slug);
 		const tokens = await service.getMemberToken(user.id);
+		const metadata = parseOrgMetadata(org.metadata as string | null);
 
-		return { accessToken: tokens.accessToken };
+		return {
+			accessToken: tokens.accessToken,
+			mode: getCircleMode(),
+			communityBaseUrl: getCircleCommunityBaseUrl(metadata.circle?.communityDomain),
+			defaultCommunityUrl: buildCircleCommunityTargetUrl({
+				communityDomain: metadata.circle?.communityDomain,
+				realPath: "",
+				mockPath: "/__mock/ui/member",
+			}),
+		};
 	});

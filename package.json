@@ -4,6 +4,8 @@
 	"scripts": {
 		"build": "dotenv -c -- turbo build",
 		"dev": "dotenv -c -- turbo dev --concurrency 15",
+		"dev:circle-mock": "pnpm --dir ../circle-mock dev",
+		"dev:with-circle-mock": "CIRCLE_MODE=mock_server CIRCLE_MOCK_BASE_URL=http://localhost:5100 dotenv -c -- turbo dev --concurrency 15",
 		"type-check": "dotenv -c -- turbo type-check",
 		"start": "dotenv -c -- turbo start",
 		"lint": "oxlint .",
