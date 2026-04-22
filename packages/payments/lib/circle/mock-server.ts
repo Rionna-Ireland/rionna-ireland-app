@@ -153,7 +153,7 @@ export class MockServerCircleService implements CircleService {
 		}
 	}
 
-	async getMemberToken(ssoUserId: string): Promise<MemberTokenResult> {
+	async getMemberToken(circleMemberId: string): Promise<MemberTokenResult> {
 		const response = await fetch(`${this.baseUrl}/api/v1/headless/auth_token`, {
 			method: "POST",
 			headers: {
@@ -161,7 +161,7 @@ export class MockServerCircleService implements CircleService {
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				sso_user_id: ssoUserId,
+				community_member_id: Number(circleMemberId),
 			}),
 		});
 
@@ -179,7 +179,7 @@ export class MockServerCircleService implements CircleService {
 		}>(response);
 
 		logger.info("[Circle] Minted member token from circle-mock", {
-			ssoUserId,
+			circleMemberId,
 			communityMemberId: data.community_member_id,
 		});
 

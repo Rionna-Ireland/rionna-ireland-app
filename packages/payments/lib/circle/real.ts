@@ -40,7 +40,7 @@ export class RealCircleService implements CircleService {
 			body: JSON.stringify({
 				email: params.email,
 				name: params.name,
-				sso_user_id: params.ssoUserId,
+				skip_invitation: true,
 				space_ids: params.spaceIds ?? [],
 			}),
 		});
@@ -55,8 +55,23 @@ export class RealCircleService implements CircleService {
 			throw new CircleApiError(response.status, `Circle create member failed: ${response.status} ${body}`);
 		}
 
-		const data = (await response.json()) as { id: number };
-		const circleMemberId = String(data.id);
+		const data = (await response.json()) as {
+			id?: number;
+			community_member?: { id: number };
+		};
+		const id = data.community_member?.id ?? data.id;
+		if (id === undefined) {
+			const body = JSON.stringify(data).slice(0, 500);
+			logger.error("[Circle] Create member: id missing from response", {
+				body,
+				email: params.email,
+			});
+			throw new CircleApiError(
+				response.status,
+				`Circle create member: id missing from response body`,
+			);
+		}
+		const circleMemberId = String(id);
 
 		logger.info("[Circle] Created member", {
 			circleMemberId,
@@ -104,7 +119,7 @@ export class RealCircleService implements CircleService {
 			body: JSON.stringify({
 				email: params.email,
 				name: params.name,
-				sso_user_id: params.ssoUserId,
+				skip_invitation: true,
 			}),
 		});
 
@@ -146,10 +161,12 @@ export class RealCircleService implements CircleService {
 		logger.info("[Circle] Deleted member", { circleMemberId });
 	}
 
-	async getMemberToken(ssoUserId: string): Promise<MemberTokenResult> {
-		const result = await this.headlessClient.getMemberAPITokenFromSSOId(ssoUserId);
+	async getMemberToken(circleMemberId: string): Promise<MemberTokenResult> {
+		const result = await this.headlessClient.getMemberAPITokenFromCommunityMemberId(
+			Number(circleMemberId),
+		);
 
-		logger.info("[Circle] Minted member token", { ssoUserId });
+		logger.info("[Circle] Minted member token", { circleMemberId });
 
 		return {
 			accessToken: result.access_token,

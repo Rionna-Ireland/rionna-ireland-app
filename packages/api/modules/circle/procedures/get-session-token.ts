@@ -1,10 +1,13 @@
 /**
  * Circle Session Token Endpoint
  *
- * Mints a Circle Member API Token for the authenticated user.
- * Used by the mobile WebView (S3-04) and web app to inject
- * Circle session cookies.
+ * Mints a Circle Member API Token (headless JWT) for the authenticated user.
+ * The mobile WebView uses the JWT to POST /api/headless/v1/cookies from
+ * within its own JS context, which installs Circle's `skip_confirmed_password`
+ * cookie first-party to the community origin and lets the user land on
+ * /settings/profile?new_state=true instead of Circle's login wall.
  *
+ * @see Architecture/specs/S0-03-circle-cookie-auth.md (approach C: WebView-side injection)
  * @see Architecture/specs/S1-05-circle-provisioning.md
  */
 
@@ -28,12 +31,14 @@ export const getSessionToken = protectedProcedure
 		summary: "Get Circle session token for authenticated user",
 	})
 	.input(
-		z.object({
-			organizationId: z.string().optional(),
-		}),
+		z
+			.object({
+				organizationId: z.string().optional(),
+			})
+			.optional(),
 	)
 	.handler(async ({ input, context: { session, user } }) => {
-		const requestedOrganizationId = input.organizationId?.trim() || null;
+		const requestedOrganizationId = input?.organizationId?.trim() || null;
 		let organizationId = session.activeOrganizationId;
 
 		async function activateOrganization(nextOrganizationId: string) {
@@ -87,8 +92,19 @@ export const getSessionToken = protectedProcedure
 			throw new ORPCError("NOT_FOUND", { message: "Organization not found" });
 		}
 
+		const member = await db.member.findFirst({
+			where: { userId: user.id, organizationId },
+			select: { circleMemberId: true },
+		});
+		if (!member?.circleMemberId) {
+			throw new ORPCError("FAILED_PRECONDITION", {
+				message:
+					"Circle member not yet provisioned. Wait for reconciliation or complete signup.",
+			});
+		}
+
 		const service = createCircleService(org.slug);
-		const tokens = await service.getMemberToken(user.id);
+		const tokens = await service.getMemberToken(member.circleMemberId);
 		const metadata = parseOrgMetadata(org.metadata as string | null);
 
 		return {

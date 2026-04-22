@@ -38,7 +38,7 @@ export interface CircleService {
 	deactivateMember(circleMemberId: string): Promise<void>;
 	reactivateMember(params: ReactivateMemberParams): Promise<void>;
 	deleteMember(circleMemberId: string): Promise<void>;
-	getMemberToken(ssoUserId: string): Promise<MemberTokenResult>;
+	getMemberToken(circleMemberId: string): Promise<MemberTokenResult>;
 }
 
 export class CircleApiError extends Error {

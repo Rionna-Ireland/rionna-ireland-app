@@ -120,11 +120,11 @@ export class MockCircleService implements CircleService {
 		});
 	}
 
-	async getMemberToken(ssoUserId: string): Promise<MemberTokenResult> {
-		logger.info("[MockCircle] Minted member token", { ssoUserId });
+	async getMemberToken(circleMemberId: string): Promise<MemberTokenResult> {
+		logger.info("[MockCircle] Minted member token", { circleMemberId });
 		return {
-			accessToken: `mock-access-token-${ssoUserId}`,
-			refreshToken: `mock-refresh-token-${ssoUserId}`,
+			accessToken: `mock-access-token-${circleMemberId}`,
+			refreshToken: `mock-refresh-token-${circleMemberId}`,
 		};
 	}
 

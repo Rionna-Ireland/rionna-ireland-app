@@ -34,8 +34,14 @@ export const getTrainerPosts = protectedProcedure
 		const spaceId = metadata.circle?.trainerUpdatesSpaceId;
 		if (!spaceId) return [];
 
+		const member = await db.member.findFirst({
+			where: { userId: user.id, organizationId: input.organizationId },
+			select: { circleMemberId: true },
+		});
+		if (!member?.circleMemberId) return [];
+
 		const service = createCircleService(org.slug);
-		const { accessToken } = await service.getMemberToken(user.id);
+		const { accessToken } = await service.getMemberToken(member.circleMemberId);
 
 		const response = await fetch(
 			`${getCircleHeadlessApiBaseUrl()}/spaces/${spaceId}/posts?per_page=${input.limit}&sort=latest`,

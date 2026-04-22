@@ -27,7 +27,7 @@ async function main() {
 			metadata: JSON.stringify({
 				brand: { primaryColor: "#374B6C" },
 				racing: { provider: "mock" },
-				circle: { communityDomain: "community.pinkconnections.com" },
+				circle: { communityDomain: "www.rionna-e53dba.club" },
 				billing: {
 					stripeProductId: "prod_test",
 					stripePriceId: "price_test",
