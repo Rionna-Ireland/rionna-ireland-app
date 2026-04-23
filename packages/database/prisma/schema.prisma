@@ -185,6 +185,7 @@ model Member {
 
   // Circle notification poller cursor (S6-01)
   circleLastSeenNotificationId String?
+  circleLastPolledAt           DateTime?
 
   @@unique([organizationId, userId])
   @@index([organizationId])
