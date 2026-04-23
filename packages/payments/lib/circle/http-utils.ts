@@ -58,6 +58,44 @@ export function normaliseCircleNotification(
 ): CircleNotification | null {
 	const r = (record ?? {}) as Record<string, unknown>;
 
+	const describeRecord = () => ({
+		recordKeys: Object.keys(r).sort(),
+		subjectKeys:
+			r.subject && typeof r.subject === "object"
+				? Object.keys(r.subject as Record<string, unknown>).sort()
+				: [],
+		actorKeys:
+			r.actor && typeof r.actor === "object"
+				? Object.keys(r.actor as Record<string, unknown>).sort()
+				: [],
+		candidateTypeFields: {
+			notification_type: r.notification_type ?? null,
+			type: r.type ?? null,
+			event_type: r.event_type ?? null,
+			kind: r.kind ?? null,
+			action: r.action ?? null,
+			name: r.name ?? null,
+		},
+		candidateTextFields: {
+			text: r.text ?? null,
+			preview_text: r.preview_text ?? null,
+			body: r.body ?? null,
+			message: r.message ?? null,
+			title: r.title ?? null,
+		},
+		subjectPreview:
+			r.subject && typeof r.subject === "object"
+				? {
+						type: (r.subject as Record<string, unknown>).type ?? null,
+						kind: (r.subject as Record<string, unknown>).kind ?? null,
+						id: (r.subject as Record<string, unknown>).id ?? null,
+						space_id: (r.subject as Record<string, unknown>).space_id ?? null,
+						spaceId: (r.subject as Record<string, unknown>).spaceId ?? null,
+						url: (r.subject as Record<string, unknown>).url ?? null,
+					}
+				: null,
+	});
+
 	if (r?.id == null) {
 		logger.error("[RealCircle] Dropping notification with missing id", {
 			record: r,
@@ -82,6 +120,7 @@ export function normaliseCircleNotification(
 		logger.warn("[RealCircle] Unknown notification_type; falling back to 'post'", {
 			rawType,
 			notificationId: String(r.id),
+			...describeRecord(),
 		});
 	}
 
@@ -100,6 +139,7 @@ export function normaliseCircleNotification(
 		logger.warn("[RealCircle] Unknown subject kind; defaulting to 'post'", {
 			rawKind: subj?.type ?? subj?.kind ?? "(none)",
 			notificationId: String(r.id ?? "(unknown)"),
+			...describeRecord(),
 		});
 	}
 
