@@ -183,6 +183,9 @@ model Member {
   circleProvisionedAt DateTime?
   circleStatus        String?
 
+  // Circle notification poller cursor (S6-01)
+  lastSeenCircleNotificationId String?
+
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
