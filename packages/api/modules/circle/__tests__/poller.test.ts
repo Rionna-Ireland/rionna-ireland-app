@@ -19,6 +19,7 @@
  *  14. PushToken freshness filter — stale-only users skipped
  *  15. org with poll.enabled === false is skipped (early exit)
  *  16. runBounded unit test — respects limit + drains all tasks
+ *  17. enabledCategories filter — suppresses out-of-category pushes
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -612,6 +613,49 @@ describe("runCirclePollTick", () => {
 		);
 	});
 
+	it("case 17: enabledCategories filter suppresses pushes but cursor still advances", async () => {
+		// Org has only `trainer_post` enabled. A notification that maps to
+		// CIRCLE_MENTION (category `direct_engagement`) is fetched and counted
+		// in `notificationsFetched`, but sendPush MUST NOT fire — and the
+		// cursor must still advance (we processed the item, just didn't push).
+		const org = makeOrg();
+		const parsed = JSON.parse(org.metadata);
+		parsed.circle.poll.enabledCategories = ["trainer_post"];
+		org.metadata = JSON.stringify(parsed);
+
+		mockOrgFindMany.mockResolvedValue([org]);
+		mockMemberFindMany.mockResolvedValue([
+			makeMember({
+				circleLastSeenNotificationId: "n5",
+				circleLastPolledAt: new Date(NOW.getTime() - 60_000),
+			}),
+		]);
+		mockGetMemberNotifications.mockResolvedValue({
+			ok: true,
+			data: {
+				items: [makeNotification({ id: "n6", type: "mention" })],
+				nextCursor: "n6",
+			},
+		});
+
+		const metrics = await runCirclePollTick({
+			now: NOW,
+			makeCircleService: makeCircleServiceFactory,
+		});
+
+		expect(mockSendPush).not.toHaveBeenCalled();
+		expect(metrics.pushesSent).toBe(0);
+		expect(metrics.notificationsFetched).toBe(1);
+		// Cursor still advances — we *saw* the item, the org just opted out.
+		expect(mockMemberUpdate).toHaveBeenCalledWith({
+			where: { id: "m1" },
+			data: expect.objectContaining({
+				circleLastPolledAt: NOW,
+				circleLastSeenNotificationId: "n6",
+			}),
+		});
+	});
+
 	it("case 14: PushToken freshness filter appears in the member query", async () => {
 		mockOrgFindMany.mockResolvedValue([makeOrg()]);
 		mockMemberFindMany.mockResolvedValue([]);
@@ -695,6 +739,12 @@ describe("pollOneMember circleLastPolledAt bumps", () => {
 					circleService: makeCircleService(),
 					communityDomain: "pink.circle.so",
 					cadenceMinutes: 1,
+					enabledCategories: [
+						"trainer_post",
+						"horse_discussion",
+						"direct_engagement",
+						"dm",
+					],
 					horseBySpace: () => null,
 				},
 			},

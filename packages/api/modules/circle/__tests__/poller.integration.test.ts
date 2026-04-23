@@ -451,6 +451,49 @@ describe("Circle poller integration against circle-mock", () => {
 			expect(cursor).toBe("1106");
 		});
 
+		it("scenario 7 — enabledCategories: only trainer_post pushes fire; mention/reply/reaction/dm suppressed", async () => {
+			// Org admin has opted out of everything but trainer_post. Full
+			// steady sweep from cursor 0 should still fetch all 9 seeded
+			// notifications (metrics reflect that) but only the TRAINER_POST
+			// mapping (id 1101) fires a push; every other mapped push —
+			// mentions, replies, reactions, dms — is suppressed at the org
+			// filter before sendPush is called.
+			const org = makeOrg();
+			const parsed = JSON.parse(org.metadata);
+			parsed.circle.poll.enabledCategories = ["trainer_post"];
+			org.metadata = JSON.stringify(parsed);
+
+			mockOrgFindMany.mockResolvedValue([org]);
+			mockMemberFindMany.mockResolvedValue([
+				makeMember({
+					circleLastSeenNotificationId: "0",
+					circleLastPolledAt: new Date(NOW.getTime() - 60_000),
+				}),
+			]);
+
+			const factory = vi.fn(() => makeRealService());
+			const metrics = await runCirclePollTick({
+				now: NOW,
+				makeCircleService: factory,
+				sendPush: mockSendPush as never,
+			});
+
+			expect(metrics.notificationsFetched).toBe(9);
+			expect(metrics.pushesSent).toBe(1);
+
+			const triggers = mockSendPush.mock.calls.map((c) => c[0].triggerType);
+			expect(triggers).toEqual(["TRAINER_POST"]);
+
+			// Cursor still advances to the tail of the sweep.
+			expect(mockMemberUpdate).toHaveBeenCalledWith({
+				where: { id: "m-int-1" },
+				data: expect.objectContaining({
+					circleLastPolledAt: NOW,
+					circleLastSeenNotificationId: "1109",
+				}),
+			});
+		});
+
 		it("scenario 6 — empty page: already-caught-up cursor bumps polled-at only", async () => {
 			mockOrgFindMany.mockResolvedValue([makeOrg()]);
 			mockMemberFindMany.mockResolvedValue([

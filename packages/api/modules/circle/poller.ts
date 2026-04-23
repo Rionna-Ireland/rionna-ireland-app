@@ -21,7 +21,11 @@
  * member never blocks the rest of the tick.
  */
 
-import { db, parseOrgMetadata } from "@repo/database";
+import {
+	db,
+	parseOrgMetadata,
+	type CircleNotificationCategory,
+} from "@repo/database";
 import { logger } from "@repo/logs";
 import { createCircleService } from "@repo/payments/lib/circle";
 import type {
@@ -42,6 +46,20 @@ const DORMANT_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const DEFAULT_CADENCE_MINUTES = 5;
 const DEFAULT_CONCURRENCY = 4;
 const FRESH_TOKEN_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/**
+ * Fallback enabled-category set when an org's metadata omits the field.
+ * Mirrors the seed default in `packages/database/prisma/seed.ts` — every
+ * push-capable category is on until an admin opts out. Categories that
+ * `mapperTriggerToCategory` never produces (`event_reminder`, `admin_event`)
+ * are intentionally excluded: those triggers are suppressed at the mapper.
+ */
+export const DEFAULT_ENABLED_CATEGORIES: CircleNotificationCategory[] = [
+	"trainer_post",
+	"horse_discussion",
+	"direct_engagement",
+	"dm",
+];
 
 export interface PollTickMetrics {
 	organizationsScanned: number;
@@ -69,6 +87,7 @@ interface OrgPollConfig {
 	circleService: CircleService;
 	communityDomain: string | undefined;
 	cadenceMinutes: number;
+	enabledCategories: CircleNotificationCategory[];
 	horseBySpace: (spaceId: string) => { id: string; name: string } | null;
 }
 
@@ -263,8 +282,8 @@ export async function pollOneMember(
 		};
 	}
 
-	// Steady state. Respect `enabledCategories` (the mapped category filter
-	// is applied below per-item).
+	// Steady state. `tryFanOut` enforces the org's `enabledCategories`
+	// filter per-item before calling `sendPush`.
 	let pushesSent = 0;
 
 	for (const item of items) {
@@ -307,6 +326,14 @@ async function tryFanOut(
 
 	const mapped = mapCircleNotification(item, ctx);
 	if (!mapped) return false;
+
+	// Per-org enabled-category filter. User-level push preferences (T10)
+	// are enforced separately inside `sendPush`; this is the org-admin
+	// opt-out surface.
+	const category = mapperTriggerToCategory(mapped.triggerType);
+	if (!org.enabledCategories.includes(category)) {
+		return false;
+	}
 
 	try {
 		await deps.sendPush({
@@ -372,6 +399,11 @@ export async function runCirclePollTick(
 			= typeof poll.cadenceMinutes === "number" && poll.cadenceMinutes > 0
 				? poll.cadenceMinutes
 				: DEFAULT_CADENCE_MINUTES;
+
+		const enabledCategories
+			= Array.isArray(poll.enabledCategories) && poll.enabledCategories.length > 0
+				? poll.enabledCategories
+				: DEFAULT_ENABLED_CATEGORIES;
 
 		// Only pull members whose orgs have push-capable users with fresh
 		// tokens. The freshness filter trims load: members without any
@@ -449,6 +481,7 @@ export async function runCirclePollTick(
 			circleService,
 			communityDomain: metadata.circle?.communityDomain,
 			cadenceMinutes,
+			enabledCategories,
 			horseBySpace: (spaceId: string) => horseBySpaceMap.get(spaceId) ?? null,
 		};
 
