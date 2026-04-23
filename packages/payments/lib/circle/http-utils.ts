@@ -58,44 +58,6 @@ export function normaliseCircleNotification(
 ): CircleNotification | null {
 	const r = (record ?? {}) as Record<string, unknown>;
 
-	const describeRecord = () => ({
-		recordKeys: Object.keys(r).sort(),
-		subjectKeys:
-			r.subject && typeof r.subject === "object"
-				? Object.keys(r.subject as Record<string, unknown>).sort()
-				: [],
-		actorKeys:
-			r.actor && typeof r.actor === "object"
-				? Object.keys(r.actor as Record<string, unknown>).sort()
-				: [],
-		candidateTypeFields: {
-			notification_type: r.notification_type ?? null,
-			type: r.type ?? null,
-			event_type: r.event_type ?? null,
-			kind: r.kind ?? null,
-			action: r.action ?? null,
-			name: r.name ?? null,
-		},
-		candidateTextFields: {
-			text: r.text ?? null,
-			preview_text: r.preview_text ?? null,
-			body: r.body ?? null,
-			message: r.message ?? null,
-			title: r.title ?? null,
-		},
-		subjectPreview:
-			r.subject && typeof r.subject === "object"
-				? {
-						type: (r.subject as Record<string, unknown>).type ?? null,
-						kind: (r.subject as Record<string, unknown>).kind ?? null,
-						id: (r.subject as Record<string, unknown>).id ?? null,
-						space_id: (r.subject as Record<string, unknown>).space_id ?? null,
-						spaceId: (r.subject as Record<string, unknown>).spaceId ?? null,
-						url: (r.subject as Record<string, unknown>).url ?? null,
-					}
-				: null,
-	});
-
 	if (r?.id == null) {
 		logger.error("[RealCircle] Dropping notification with missing id", {
 			record: r,
@@ -114,52 +76,111 @@ export function normaliseCircleNotification(
 		member_joined: "admin_event",
 		content_flagged: "admin_event",
 	};
-	const rawType = String(r.notification_type ?? r.type ?? "");
-	const type: CircleNotificationType = typeMap[rawType] ?? "post";
-	if (!typeMap[rawType]) {
-		logger.warn("[RealCircle] Unknown notification_type; falling back to 'post'", {
-			rawType,
-			notificationId: String(r.id),
-			...describeRecord(),
-		});
-	}
+	const notifiable = (r.notifiable ?? r.subject ?? {}) as Record<string, unknown>;
+	const rawAction = String(r.action ?? "");
+	const rawType = String(r.notification_type ?? r.type ?? rawAction ?? "");
+	const rawNotifiableType = String(r.notifiable_type ?? "");
+	const normalizedNotifiableType = rawNotifiableType.toLowerCase();
 
-	const subj = (r.subject ?? {}) as Record<string, unknown>;
-	const rawSubjectKind = String(subj.type ?? subj.kind ?? "");
+	const knownActionMap: Record<string, CircleNotificationType> = {
+		mention: "mention",
+		like: "reaction",
+		rsvp: "event_reminder",
+		message: "dm",
+		dm: "dm",
+		direct_message: "dm",
+	};
+
 	const knownSubjectKinds: Record<string, CircleNotificationSubject["kind"]> = {
 		post: "post",
 		comment: "comment",
 		dm: "dm",
 		event: "event",
 		member: "member",
+		conversation: "dm",
+		message: "dm",
 	};
+
+	const rawSubjectKind = String(
+		notifiable.type
+			?? notifiable.kind
+			?? rawNotifiableType
+			?? "",
+	).toLowerCase();
 	const subjectKind: CircleNotificationSubject["kind"] =
 		knownSubjectKinds[rawSubjectKind] ?? "post";
+
+	let type: CircleNotificationType | null =
+		typeMap[rawType] ?? knownActionMap[rawAction] ?? null;
+
+	if (type === null) {
+		if (rawAction === "add") {
+			type = subjectKind === "comment" ? "comment" : "post";
+		} else if (subjectKind === "event") {
+			type = "event_reminder";
+		} else if (subjectKind === "member") {
+			type = "admin_event";
+		} else {
+			type = "post";
+			logger.warn("[RealCircle] Unknown notification type; falling back to 'post'", {
+				rawType,
+				rawAction,
+				rawNotifiableType,
+				notificationId: String(r.id),
+				recordKeys: Object.keys(r).sort(),
+			});
+		}
+	}
+
 	if (!knownSubjectKinds[rawSubjectKind]) {
 		logger.warn("[RealCircle] Unknown subject kind; defaulting to 'post'", {
-			rawKind: subj?.type ?? subj?.kind ?? "(none)",
+			rawKind: rawSubjectKind || "(none)",
+			rawNotifiableType,
 			notificationId: String(r.id ?? "(unknown)"),
-			...describeRecord(),
 		});
 	}
 
 	const actor = r.actor as { id?: unknown; name?: unknown } | null | undefined;
+	const actorName = String(
+		actor?.name
+			?? r.actor_name
+			?? r.second_actor_name
+			?? "",
+	).trim();
+	const actorId = String(
+		actor?.id
+			?? r.actor_id
+			?? actorName,
+	).trim();
+
+	const text = String(
+		r.text
+			?? r.preview_text
+			?? r.notifiable_title
+			?? r.display_action
+			?? "",
+	).trim();
 
 	return {
 		id: String(r.id),
 		type,
 		createdAt: String(r.created_at ?? r.createdAt ?? ""),
 		actor:
-			actor && actor.id !== undefined
-				? { id: String(actor.id), name: String(actor.name ?? "") }
+			actorId && actorName
+				? { id: actorId, name: actorName }
 				: null,
 		subject: {
 			kind: subjectKind,
-			id: String(subj.id ?? ""),
-			spaceId: subj.space_id != null ? String(subj.space_id) : undefined,
-			url: subj.url ? String(subj.url) : undefined,
+			id: String(notifiable.id ?? r.notifiable_id ?? ""),
+			spaceId:
+				notifiable.space_id != null
+					? String(notifiable.space_id)
+					: r.space_id != null
+						? String(r.space_id)
+						: undefined,
+			url: String(notifiable.url ?? r.action_web_url ?? "").trim() || undefined,
 		},
-		text: String(r.text ?? r.preview_text ?? ""),
+		text,
 	};
 }
 

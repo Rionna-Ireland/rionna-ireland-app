@@ -116,6 +116,140 @@ describe("MockServerCircleService.getMemberNotifications", () => {
 		expect(outcome.data.nextCursor).toBe("1001");
 	});
 
+	it("normalises the real live Circle action/notifiable payload for mentions", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{
+						id: 38121863575,
+						created_at: "2026-04-23T15:05:09.159Z",
+						action: "mention",
+						notifiable_id: 101781701,
+						space_id: 2598628,
+						actor_name: "Tom Power",
+						notifiable_title: "TEST",
+						notifiable_type: "Comment",
+						action_web_url: "https://community.rionna-e53dba.club/c/test-horse/test-4c6646#comment_wrapper_101781701",
+						notifiable: {
+							id: 101781701,
+							post_id: 31956060,
+							parent_comment_id: null,
+							community_id: 517885,
+							space_id: 2598628,
+						},
+					},
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		expect(outcome.ok).toBe(true);
+		if (!outcome.ok) return;
+		expect(outcome.data.items[0]).toMatchObject({
+			id: "38121863575",
+			type: "mention",
+			actor: { id: "Tom Power", name: "Tom Power" },
+			subject: {
+				kind: "comment",
+				id: "101781701",
+				spaceId: "2598628",
+			},
+			text: "TEST",
+		});
+	});
+
+	it("normalises the real live Circle action/notifiable payload for reactions", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{
+						id: 38093662859,
+						created_at: "2026-04-22T17:37:09.951Z",
+						action: "like",
+						notifiable_id: 101696496,
+						space_id: 2598628,
+						actor_name: "Tom Power",
+						notifiable_title: "I love the horses",
+						notifiable_type: "Comment",
+						action_web_url: "https://community.rionna-e53dba.club/c/test-horse/i-love-the-horses#comment_wrapper_101696496",
+						notifiable: {
+							id: 101696496,
+							post_id: 31926598,
+							parent_comment_id: null,
+							community_id: 517885,
+							space_id: 2598628,
+						},
+					},
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		expect(outcome.ok).toBe(true);
+		if (!outcome.ok) return;
+		expect(outcome.data.items[0]).toMatchObject({
+			id: "38093662859",
+			type: "reaction",
+			subject: {
+				kind: "comment",
+				id: "101696496",
+				spaceId: "2598628",
+			},
+			text: "I love the horses",
+		});
+	});
+
+	it("normalises the real live Circle action/notifiable payload for new posts", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{
+						id: 38119497817,
+						created_at: "2026-04-23T14:04:44.459Z",
+						action: "add",
+						notifiable_id: 31953658,
+						space_id: 2598628,
+						actor_name: "Tom Power",
+						notifiable_title: "Wow I love horses!",
+						notifiable_type: "Post",
+						action_web_url: "https://community.rionna-e53dba.club/c/test-horse/wow-i-love-horses",
+						notifiable: {
+							id: 31953658,
+							community_id: 517885,
+							space_id: 2598628,
+						},
+					},
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		expect(outcome.ok).toBe(true);
+		if (!outcome.ok) return;
+		expect(outcome.data.items[0]).toMatchObject({
+			id: "38119497817",
+			type: "post",
+			subject: {
+				kind: "post",
+				id: "31953658",
+				spaceId: "2598628",
+			},
+			text: "Wow I love horses!",
+		});
+	});
+
 	it("returns empty items + null cursor on 200 with no records", async () => {
 		vi.stubGlobal("fetch", mockFetchJson(200, { records: [], has_next_page: false }));
 
