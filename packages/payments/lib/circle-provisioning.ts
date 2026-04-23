@@ -60,8 +60,10 @@ export async function provisionCircleMember(
 			},
 		});
 		logger.error("[Circle] Member provisioning failed; deferring to reconciliation", {
+			surface: "circle.provisioning",
 			memberId: member.id,
 			userId: member.userId,
+			organizationId: member.organizationId,
 			reason: outcome.reason,
 			retriable: outcome.retriable,
 		});
@@ -104,7 +106,9 @@ export async function deactivateCircleMember(
 		logger.error(
 			"[Circle] Member deactivation failed; deferring to reconciliation",
 			{
+				surface: "circle.provisioning",
 				memberId: member.id,
+				organizationId: dbMember.organizationId,
 				circleMemberId: member.circleMemberId,
 				reason: outcome.reason,
 				retriable: outcome.retriable,
@@ -153,7 +157,9 @@ export async function reactivateCircleMember(
 		logger.error(
 			"[Circle] Member reactivation failed; deferring to reconciliation",
 			{
+				surface: "circle.provisioning",
 				memberId: member.id,
+				organizationId: dbMember.organizationId,
 				circleMemberId: member.circleMemberId,
 				reason: outcome.reason,
 				retriable: outcome.retriable,
@@ -196,8 +202,10 @@ export async function deleteCircleMember(
 
 	if (!outcome.ok) {
 		logger.error("[Circle] Member deletion failed", {
+			surface: "circle.provisioning",
 			circleMemberId,
 			memberId: member.id,
+			organizationId: member.organizationId,
 			reason: outcome.reason,
 			retriable: outcome.retriable,
 		});

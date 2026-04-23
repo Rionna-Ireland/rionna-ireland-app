@@ -46,10 +46,12 @@ export const getTrainerPosts = protectedProcedure
 		if (!tokenOutcome.ok) {
 			// Non-blocking dashboard tile — log and return empty on failure.
 			logger.warn("[Circle] Trainer posts: token mint failed", {
+				surface: "circle.trainer_posts",
 				userId: user.id,
 				organizationId: input.organizationId,
 				circleMemberId: member.circleMemberId,
 				reason: tokenOutcome.reason,
+				retriable: tokenOutcome.retriable,
 			});
 			return [];
 		}

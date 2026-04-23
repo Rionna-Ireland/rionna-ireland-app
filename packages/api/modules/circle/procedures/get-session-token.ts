@@ -109,6 +109,7 @@ export const getSessionToken = protectedProcedure
 		if (!tokenOutcome.ok) {
 			// Log reason/raw server-side; keep the client error message generic.
 			logger.error("[Circle] Session token mint failed", {
+				surface: "circle.session_token",
 				userId: user.id,
 				organizationId,
 				circleMemberId: member.circleMemberId,

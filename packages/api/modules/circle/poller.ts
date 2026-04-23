@@ -197,10 +197,13 @@ export async function pollOneMember(
 			// cursor so that, if the member is re-provisioned later, we
 			// baseline cleanly on the next tick.
 			logger.warn("circle.drift.detected", {
+				surface: "circle.poller",
 				memberId: member.id,
 				userId: member.userId,
 				organizationId: org.id,
 				circleMemberId: member.circleMemberId,
+				reason: "not_found",
+				retriable: false,
 			});
 			await db.member.update({
 				where: { id: member.id },
@@ -221,6 +224,7 @@ export async function pollOneMember(
 		}
 
 		logger.warn("[CirclePoller] getMemberNotifications failed", {
+			surface: "circle.poller",
 			memberId: member.id,
 			organizationId: org.id,
 			reason: page.reason,
@@ -317,6 +321,7 @@ async function tryFanOut(
 		return true;
 	} catch (error) {
 		logger.error("[CirclePoller] sendPush threw", {
+			surface: "circle.poller",
 			organizationId: org.id,
 			userId,
 			circleNotificationId: item.id,
@@ -429,6 +434,7 @@ export async function runCirclePollTick(
 			circleService = makeCircle(org.slug);
 		} catch (error) {
 			logger.error("[CirclePoller] createCircleService failed", {
+				surface: "circle.poller",
 				organizationId: org.id,
 				slug: org.slug,
 				error: error instanceof Error ? error.message : String(error),
@@ -461,6 +467,7 @@ export async function runCirclePollTick(
 			} catch (error) {
 				metrics.errors += 1;
 				logger.error("[CirclePoller] pollOneMember threw", {
+					surface: "circle.poller",
 					memberId: member.id,
 					organizationId: org.id,
 					error: error instanceof Error ? error.message : String(error),

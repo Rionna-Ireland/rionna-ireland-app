@@ -347,6 +347,58 @@ describe("reconcileCircleMembers", () => {
 				}),
 			);
 		});
+
+		it("emits circle.provisioning.failed_permanent when a previously-failed member fails again (S6-01 T13)", async () => {
+			// Member was already marked provisioning_failed on an earlier
+			// reconciliation run. This sweep picks them up (still no
+			// circleMemberId) and Circle fails again — that's the signal that
+			// this Member is stuck and needs ops attention.
+			const member = {
+				...makeUnprovisionedMember("m1", "u1"),
+				circleStatus: "provisioning_failed",
+			};
+			mockMemberFindManyUnprovisioned.mockResolvedValue([member]);
+			mockCreateMember.mockResolvedValueOnce({
+				ok: false,
+				reason: "server_error",
+				retriable: true,
+				raw: "Circle 503",
+			});
+
+			await reconcileCircleMembers(ORG_ID);
+
+			expect(mockLoggerError).toHaveBeenCalledWith(
+				"circle.provisioning.failed_permanent",
+				expect.objectContaining({
+					surface: "circle.reconciliation",
+					memberId: "m1",
+					userId: "u1",
+					orgId: ORG_ID,
+					circleStatus: "provisioning_failed",
+					reason: "server_error",
+				}),
+			);
+		});
+
+		it("does NOT emit circle.provisioning.failed_permanent on first-time failure", async () => {
+			// Fresh member — no prior provisioning_failed state. The normal
+			// failure log fires but the "permanent" event should not.
+			const member = makeUnprovisionedMember("m1", "u1");
+			mockMemberFindManyUnprovisioned.mockResolvedValue([member]);
+			mockCreateMember.mockResolvedValueOnce({
+				ok: false,
+				reason: "server_error",
+				retriable: true,
+				raw: "Circle 503",
+			});
+
+			await reconcileCircleMembers(ORG_ID);
+
+			expect(mockLoggerError).not.toHaveBeenCalledWith(
+				"circle.provisioning.failed_permanent",
+				expect.anything(),
+			);
+		});
 	});
 
 	describe("combined scenarios", () => {
