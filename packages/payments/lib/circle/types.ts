@@ -106,11 +106,17 @@ export type CircleCallOutcome<T> =
 	| { ok: false; reason: CircleCallFailure; retriable: boolean; raw?: unknown };
 
 export interface CircleService {
-	createMember(params: CreateMemberParams): Promise<CreateMemberResult>;
-	deactivateMember(circleMemberId: string): Promise<void>;
-	reactivateMember(params: ReactivateMemberParams): Promise<void>;
-	deleteMember(circleMemberId: string): Promise<void>;
-	getMemberToken(circleMemberId: string): Promise<MemberTokenResult>;
+	createMember(
+		params: CreateMemberParams,
+	): Promise<CircleCallOutcome<CreateMemberResult>>;
+	deactivateMember(circleMemberId: string): Promise<CircleCallOutcome<void>>;
+	reactivateMember(
+		params: ReactivateMemberParams,
+	): Promise<CircleCallOutcome<void>>;
+	deleteMember(circleMemberId: string): Promise<CircleCallOutcome<void>>;
+	getMemberToken(
+		circleMemberId: string,
+	): Promise<CircleCallOutcome<MemberTokenResult>>;
 	/**
 	 * Fetch notifications for a community member, newer than the given cursor.
 	 *
