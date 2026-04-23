@@ -9,6 +9,11 @@ const pushPreferencesSchema = z
 		raceResult: z.boolean().optional(),
 		trainerPost: z.boolean().optional(),
 		newsPost: z.boolean().optional(),
+		circleMention: z.boolean().optional(),
+		circleReply: z.boolean().optional(),
+		circleReaction: z.boolean().optional(),
+		circleDm: z.boolean().optional(),
+		circleHorseDiscussion: z.boolean().optional(),
 	})
 	.optional();
 

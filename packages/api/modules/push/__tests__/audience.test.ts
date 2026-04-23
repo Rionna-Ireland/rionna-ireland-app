@@ -45,6 +45,26 @@ describe("getPrefKey", () => {
 	it("maps SYSTEM to null (all users)", () => {
 		expect(getPrefKey("SYSTEM")).toBeNull();
 	});
+
+	it("maps CIRCLE_MENTION to circleMention", () => {
+		expect(getPrefKey("CIRCLE_MENTION")).toBe("circleMention");
+	});
+
+	it("maps CIRCLE_REPLY to circleReply", () => {
+		expect(getPrefKey("CIRCLE_REPLY")).toBe("circleReply");
+	});
+
+	it("maps CIRCLE_REACTION to circleReaction", () => {
+		expect(getPrefKey("CIRCLE_REACTION")).toBe("circleReaction");
+	});
+
+	it("maps CIRCLE_DM to circleDm", () => {
+		expect(getPrefKey("CIRCLE_DM")).toBe("circleDm");
+	});
+
+	it("maps CIRCLE_HORSE_DISCUSSION to circleHorseDiscussion", () => {
+		expect(getPrefKey("CIRCLE_HORSE_DISCUSSION")).toBe("circleHorseDiscussion");
+	});
 });
 
 describe("getAudienceTokens", () => {
@@ -218,5 +238,115 @@ describe("getAudienceTokens", () => {
 				user: { select: { pushPreferences: true } },
 			},
 		});
+	});
+
+	// S6-01 T10: Circle-origin trigger-type → pref-key filtering.
+	describe("Circle trigger types", () => {
+		const cases: Array<{
+			triggerType:
+				| "CIRCLE_MENTION"
+				| "CIRCLE_REPLY"
+				| "CIRCLE_REACTION"
+				| "CIRCLE_DM"
+				| "CIRCLE_HORSE_DISCUSSION";
+			prefKey:
+				| "circleMention"
+				| "circleReply"
+				| "circleReaction"
+				| "circleDm"
+				| "circleHorseDiscussion";
+		}> = [
+			{ triggerType: "CIRCLE_MENTION", prefKey: "circleMention" },
+			{ triggerType: "CIRCLE_REPLY", prefKey: "circleReply" },
+			{ triggerType: "CIRCLE_REACTION", prefKey: "circleReaction" },
+			{ triggerType: "CIRCLE_DM", prefKey: "circleDm" },
+			{
+				triggerType: "CIRCLE_HORSE_DISCUSSION",
+				prefKey: "circleHorseDiscussion",
+			},
+		];
+
+		for (const { triggerType, prefKey } of cases) {
+			it(`includes users with ${prefKey}: true for ${triggerType}`, async () => {
+				mockFindMany.mockResolvedValue([
+					{
+						expoPushToken: "ExponentPushToken[abc]",
+						userId: "user-1",
+						user: { pushPreferences: { [prefKey]: true } },
+					},
+				]);
+
+				const tokens = await getAudienceTokens({
+					organizationId: "org-1",
+					triggerType,
+				});
+
+				expect(tokens).toEqual([
+					{ expoPushToken: "ExponentPushToken[abc]", userId: "user-1" },
+				]);
+			});
+
+			it(`excludes users with ${prefKey}: false for ${triggerType}`, async () => {
+				mockFindMany.mockResolvedValue([
+					{
+						expoPushToken: "ExponentPushToken[abc]",
+						userId: "user-1",
+						user: { pushPreferences: { [prefKey]: false } },
+					},
+					{
+						expoPushToken: "ExponentPushToken[def]",
+						userId: "user-2",
+						user: { pushPreferences: { [prefKey]: true } },
+					},
+				]);
+
+				const tokens = await getAudienceTokens({
+					organizationId: "org-1",
+					triggerType,
+				});
+
+				expect(tokens).toEqual([
+					{ expoPushToken: "ExponentPushToken[def]", userId: "user-2" },
+				]);
+			});
+
+			it(`treats absent ${prefKey} as enabled for ${triggerType} (opt-out model)`, async () => {
+				mockFindMany.mockResolvedValue([
+					{
+						expoPushToken: "ExponentPushToken[abc]",
+						userId: "user-1",
+						user: { pushPreferences: {} },
+					},
+				]);
+
+				const tokens = await getAudienceTokens({
+					organizationId: "org-1",
+					triggerType,
+				});
+
+				expect(tokens).toHaveLength(1);
+			});
+
+			it(`excludes all users when master pushEnabled is off for ${triggerType}`, async () => {
+				// getAudienceTokens filters pushEnabled at the DB layer via the
+				// `where.user.pushEnabled: true` clause. Simulate the DB returning
+				// no rows (master switch off => user excluded from query).
+				mockFindMany.mockResolvedValue([]);
+
+				const tokens = await getAudienceTokens({
+					organizationId: "org-1",
+					triggerType,
+				});
+
+				expect(tokens).toEqual([]);
+				expect(mockFindMany).toHaveBeenCalledWith(
+					expect.objectContaining({
+						where: expect.objectContaining({
+							user: expect.objectContaining({ pushEnabled: true }),
+						}),
+					}),
+				);
+			});
+		}
 	});
 });

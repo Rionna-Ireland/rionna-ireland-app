@@ -55,7 +55,7 @@ export type OrganizationScalarFieldEnum = z.infer<typeof OrganizationScalarField
 
 // File: MemberScalarFieldEnum.schema.ts
 
-export const MemberScalarFieldEnumSchema = z.enum(['id', 'organizationId', 'userId', 'role', 'createdAt', 'circleMemberId', 'circleProvisionedAt', 'circleStatus'])
+export const MemberScalarFieldEnumSchema = z.enum(['id', 'organizationId', 'userId', 'role', 'createdAt', 'circleMemberId', 'circleProvisionedAt', 'circleStatus', 'circleLastSeenNotificationId'])
 
 export type MemberScalarFieldEnum = z.infer<typeof MemberScalarFieldEnumSchema>;
 
@@ -223,7 +223,7 @@ export type DevicePlatform = z.infer<typeof DevicePlatformSchema>;
 
 // File: PushTriggerType.schema.ts
 
-export const PushTriggerTypeSchema = z.enum(['HORSE_DECLARED', 'HORSE_NON_RUNNER', 'RACE_RESULT', 'TRAINER_POST', 'NEWS_POST', 'SYSTEM'])
+export const PushTriggerTypeSchema = z.enum(['HORSE_DECLARED', 'HORSE_NON_RUNNER', 'RACE_RESULT', 'TRAINER_POST', 'NEWS_POST', 'SYSTEM', 'CIRCLE_MENTION', 'CIRCLE_REPLY', 'CIRCLE_REACTION', 'CIRCLE_DM', 'CIRCLE_HORSE_DISCUSSION'])
 
 export type PushTriggerType = z.infer<typeof PushTriggerTypeSchema>;
 
@@ -373,6 +373,7 @@ export const MemberSchema = z.object({
   circleMemberId: z.string().nullish(),
   circleProvisionedAt: z.date().nullish(),
   circleStatus: z.string().nullish(),
+  circleLastSeenNotificationId: z.string().nullish(),
 });
 
 export type MemberType = z.infer<typeof MemberSchema>;

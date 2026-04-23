@@ -1,14 +1,43 @@
+import type { PushTriggerType } from "@repo/database";
 import type { CircleNotification } from "@repo/payments/lib/circle/types";
 
 /**
- * Output shape the poller hands to sendPush.
- * Literal-string triggerType/prefKey become members of typed enums in T10.
+ * Subset of {@link PushTriggerType} that the Circle notification mapper can
+ * emit. Narrowed (vs. the full enum) so T11's poller fan-out can reason about
+ * which trigger types originate from the Circle pipeline vs. the news /
+ * race ingest workers.
+ */
+export type CircleMapperTrigger = Extract<
+	PushTriggerType,
+	| "CIRCLE_MENTION"
+	| "CIRCLE_REPLY"
+	| "CIRCLE_REACTION"
+	| "CIRCLE_DM"
+	| "CIRCLE_HORSE_DISCUSSION"
+	| "TRAINER_POST"
+>;
+
+/**
+ * Keys on `User.pushPreferences` (JSON) that the Circle mapper targets. Kept
+ * as a string-literal union so the poller and the sendPush audience filter
+ * share a single source of truth for pref-key spelling.
+ */
+export type CircleMapperPrefKey =
+	| "circleMention"
+	| "circleReply"
+	| "circleReaction"
+	| "circleDm"
+	| "circleHorseDiscussion"
+	| "trainerPost";
+
+/**
+ * Output shape the poller hands to sendPush. Narrowed from the T8 placeholder
+ * `string` types now that T10 has extended {@link PushTriggerType} and the
+ * user-preference zod schema with Circle-origin categories.
  */
 export interface MappedPush {
-	/** T10 narrows to PushTriggerType enum. */
-	triggerType: string;
-	/** T10 narrows to a keyof User.pushPreferences. */
-	prefKey: string;
+	triggerType: CircleMapperTrigger;
+	prefKey: CircleMapperPrefKey;
 	title: string;
 	body: string;
 	data: Record<string, string>;

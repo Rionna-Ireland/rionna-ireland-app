@@ -36,6 +36,16 @@ export function getPrefKey(triggerType: PushTriggerType): string | null {
 			return "trainerPost";
 		case "NEWS_POST":
 			return "newsPost";
+		case "CIRCLE_MENTION":
+			return "circleMention";
+		case "CIRCLE_REPLY":
+			return "circleReply";
+		case "CIRCLE_REACTION":
+			return "circleReaction";
+		case "CIRCLE_DM":
+			return "circleDm";
+		case "CIRCLE_HORSE_DISCUSSION":
+			return "circleHorseDiscussion";
 		case "SYSTEM":
 			return null;
 	}
