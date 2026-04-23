@@ -544,6 +544,9 @@ model PushLog {
   organizationId String
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String?
+  /// Device-scoped dedup is enforced via a partial unique index in raw SQL
+  /// migration `20260423170000_add_push_log_dedup_guard` because Prisma
+  /// cannot express partial unique indexes in the schema DSL.
   expoPushToken  String?
   title          String
   body           String
@@ -572,4 +575,3 @@ model StripeEventLog {
   @@index([type, processedAt])
   @@map("stripe_event_log")
 }
-

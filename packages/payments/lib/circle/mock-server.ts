@@ -1,5 +1,6 @@
 import { logger } from "@repo/logs";
 import {
+	applyNotificationsCursor,
 	classifyStatus,
 	compareIds,
 	normaliseCircleNotification,
@@ -375,9 +376,10 @@ export class MockServerCircleService implements CircleService {
 				{ count: items.length },
 			);
 		}
-		const nextCursor =
-			sortedItems.length > 0 ? sortedItems[sortedItems.length - 1]!.id : null;
 
-		return { ok: true, data: { items: sortedItems, nextCursor } };
+		return {
+			ok: true,
+			data: applyNotificationsCursor(sortedItems, opts.sinceNotificationId),
+		};
 	}
 }

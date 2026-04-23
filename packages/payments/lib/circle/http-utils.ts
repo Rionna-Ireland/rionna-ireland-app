@@ -11,6 +11,7 @@ import { logger } from "@repo/logs";
 import type {
 	CircleCallFailure,
 	CircleNotification,
+	CircleNotificationPage,
 	CircleNotificationSubject,
 	CircleNotificationType,
 } from "./types";
@@ -119,5 +120,49 @@ export function normaliseCircleNotification(
 			url: subj.url ? String(subj.url) : undefined,
 		},
 		text: String(r.text ?? r.preview_text ?? ""),
+	};
+}
+
+/**
+ * Belt-and-braces cursor guard for notifications pages.
+ *
+ * The Headless API is expected to honor `sinceNotificationId`/`after_id`, but
+ * live rollout has already shown replay symptoms. We therefore apply the
+ * cursor locally as well: any record whose id is <= the current cursor is
+ * filtered out, and an all-stale page preserves the existing cursor instead of
+ * rewinding it.
+ */
+export function applyNotificationsCursor(
+	items: CircleNotification[],
+	sinceNotificationId: string | null,
+): CircleNotificationPage {
+	const sortedItems = [...items].sort((a, b) => compareIds(a.id, b.id));
+	const filteredItems = sinceNotificationId
+		? sortedItems.filter((item) => compareIds(item.id, sinceNotificationId) > 0)
+		: sortedItems;
+
+	if (
+		sinceNotificationId !== null
+		&& filteredItems.length !== sortedItems.length
+	) {
+		logger.warn("[CircleNotifications] Filtered stale/replayed notifications locally", {
+			sinceNotificationId,
+			returnedCount: sortedItems.length,
+			filteredCount: filteredItems.length,
+			highestReturnedId:
+				sortedItems.length > 0
+					? sortedItems[sortedItems.length - 1]!.id
+					: null,
+		});
+	}
+
+	return {
+		items: filteredItems,
+		nextCursor:
+			filteredItems.length > 0
+				? filteredItems[filteredItems.length - 1]!.id
+				: sortedItems.length > 0
+					? sinceNotificationId
+					: null,
 	};
 }

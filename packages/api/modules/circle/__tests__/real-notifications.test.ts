@@ -325,4 +325,53 @@ describe("RealCircleService.getMemberNotifications", () => {
 		expect(outcome.data.nextCursor).toBe("102");
 		expect(outcome.data.items.map((i) => i.type)).toEqual(["post", "post", "post"]);
 	});
+
+	it("filters out stale/replayed records at or before the saved cursor", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{ id: 100, notification_type: "post_created", created_at: "t1", subject: { type: "post", id: 1 }, text: "old" },
+					{ id: 101, notification_type: "post_created", created_at: "t2", subject: { type: "post", id: 2 }, text: "new" },
+					{ id: 102, notification_type: "post_created", created_at: "t3", subject: { type: "post", id: 3 }, text: "newest" },
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: "100",
+		});
+
+		if (!outcome.ok) throw new Error("expected ok");
+		expect(outcome.data.items.map((i) => i.id)).toEqual(["101", "102"]);
+		expect(outcome.data.nextCursor).toBe("102");
+		expect(mockLogger.warn).toHaveBeenCalledWith(
+			expect.stringContaining("Filtered stale/replayed notifications locally"),
+			expect.objectContaining({
+				sinceNotificationId: "100",
+				returnedCount: 3,
+				filteredCount: 2,
+			}),
+		);
+	});
+
+	it("preserves the saved cursor when the whole page is stale replay", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{ id: 100, notification_type: "post_created", created_at: "t1", subject: { type: "post", id: 1 }, text: "old" },
+					{ id: 101, notification_type: "post_created", created_at: "t2", subject: { type: "post", id: 2 }, text: "old" },
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: "101",
+		});
+
+		if (!outcome.ok) throw new Error("expected ok");
+		expect(outcome.data.items).toEqual([]);
+		expect(outcome.data.nextCursor).toBe("101");
+	});
 });
