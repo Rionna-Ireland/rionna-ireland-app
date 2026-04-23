@@ -59,7 +59,7 @@ WelcomeMember.PreviewProps = {
 	translations: defaultTranslations,
 	memberName: "John Doe",
 	clubName: "Pink Connections",
-	communityUrl: "https://www.rionna-e53dba.club",
+	communityUrl: "https://community.rionna-e53dba.club",
 };
 
 export default WelcomeMember;
