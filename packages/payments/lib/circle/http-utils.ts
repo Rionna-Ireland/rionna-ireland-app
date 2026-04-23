@@ -84,6 +84,7 @@ export function normaliseCircleNotification(
 
 	const knownActionMap: Record<string, CircleNotificationType> = {
 		mention: "mention",
+		comment: "comment",
 		like: "reaction",
 		rsvp: "event_reminder",
 		message: "dm",
@@ -160,6 +161,13 @@ export function normaliseCircleNotification(
 			?? r.display_action
 			?? "",
 	).trim();
+	const subjectTitle = String(
+		notifiable.title
+			?? r.notifiable_title
+			?? "",
+	).trim();
+	const spaceTitle = String(r.space_title ?? "").trim();
+	const displayAction = String(r.display_action ?? "").trim();
 
 	return {
 		id: String(r.id),
@@ -178,8 +186,11 @@ export function normaliseCircleNotification(
 					: r.space_id != null
 						? String(r.space_id)
 						: undefined,
+			title: subjectTitle || undefined,
 			url: String(notifiable.url ?? r.action_web_url ?? "").trim() || undefined,
 		},
+		spaceTitle: spaceTitle || undefined,
+		displayAction: displayAction || undefined,
 		text,
 	};
 }

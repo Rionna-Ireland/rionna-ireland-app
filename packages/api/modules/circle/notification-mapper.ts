@@ -46,11 +46,67 @@ export interface MappedPush {
 export interface MapCtx {
 	organizationId: string;
 	communityDomain: string | undefined;
+	trainerUpdatesSpaceId?: string;
 	/**
 	 * Resolves a Circle space id → Horse; returns null when the space doesn't
 	 * map to a horse.
 	 */
 	horseBySpace: (spaceId: string) => { id: string; name: string } | null;
+}
+
+function compactText(value: string | null | undefined): string | null {
+	if (!value) return null;
+	const compacted = value.replace(/\s+/g, " ").trim();
+	return compacted.length > 0 ? compacted : null;
+}
+
+function actorName(
+	notification: Pick<CircleNotification, "actor">,
+): string | null {
+	return compactText(notification.actor?.name);
+}
+
+function bodyText(
+	notification: Pick<CircleNotification, "text" | "subject">,
+	fallback: string,
+): string {
+	return (
+		compactText(notification.text)
+		?? compactText(notification.subject.title)
+		?? fallback
+	);
+}
+
+function cleanDisplayAction(
+	notification: Pick<CircleNotification, "displayAction">,
+): string | null {
+	return compactText(notification.displayAction)?.replace(/:+$/, "") ?? null;
+}
+
+function actorActionTitle(
+	notification: Pick<
+		CircleNotification,
+		"actor" | "displayAction" | "spaceTitle"
+	>,
+	fallback: string,
+): string {
+	const actor = actorName(notification);
+	const action = cleanDisplayAction(notification);
+	const spaceTitle = compactText(notification.spaceTitle);
+
+	if (actor && action && spaceTitle && !action.toLowerCase().includes(` in `)) {
+		return `${actor} ${action} in ${spaceTitle}`;
+	}
+
+	if (actor && action) {
+		return `${actor} ${action}`;
+	}
+
+	if (actor && spaceTitle) {
+		return `${actor} posted in ${spaceTitle}`;
+	}
+
+	return fallback;
 }
 
 /**
@@ -68,40 +124,39 @@ export function mapCircleNotification(
 	const deepLink: Record<string, string> = notification.subject.url
 		? { screen: "community", url: notification.subject.url }
 		: { screen: "community" };
+	const actor = actorName(notification);
 
 	switch (notification.type) {
 		case "mention":
 			return {
 				triggerType: "CIRCLE_MENTION",
 				prefKey: "circleMention",
-				title: "You were mentioned",
-				body: notification.text,
+				title: actorActionTitle(notification, "You were mentioned"),
+				body: bodyText(notification, "Open the mention in Circle."),
 				data: deepLink,
 			};
 		case "comment":
 			return {
 				triggerType: "CIRCLE_REPLY",
 				prefKey: "circleReply",
-				title: "New reply",
-				body: notification.text,
+				title: actorActionTitle(notification, "New reply in Circle"),
+				body: bodyText(notification, "Open the reply in Circle."),
 				data: deepLink,
 			};
 		case "reaction":
 			return {
 				triggerType: "CIRCLE_REACTION",
 				prefKey: "circleReaction",
-				title: "Someone reacted",
-				body: notification.text,
+				title: actorActionTitle(notification, "Someone reacted"),
+				body: bodyText(notification, "Open the latest reaction in Circle."),
 				data: deepLink,
 			};
 		case "dm":
 			return {
 				triggerType: "CIRCLE_DM",
 				prefKey: "circleDm",
-				title: notification.actor?.name
-					? `Message from ${notification.actor.name}`
-					: "New message",
-				body: notification.text,
+				title: actor ? `${actor} sent you a message` : "New message in Circle",
+				body: bodyText(notification, "Open your messages in Circle."),
 				data: deepLink,
 			};
 		case "post": {
@@ -113,17 +168,40 @@ export function mapCircleNotification(
 					return {
 						triggerType: "CIRCLE_HORSE_DISCUSSION",
 						prefKey: "circleHorseDiscussion",
-						title: `New in ${horse.name}'s space`,
-						body: notification.text,
+						title: actor
+							? `${actor} posted in ${horse.name}'s space`
+							: `New in ${horse.name}'s space`,
+						body: bodyText(
+							notification,
+							`Open the latest discussion in ${horse.name}'s space.`,
+						),
 						data: deepLink,
 					};
 				}
 			}
+			const isTrainerUpdatesPost =
+				notification.subject.spaceId != null
+				&& ctx.trainerUpdatesSpaceId != null
+				&& notification.subject.spaceId === ctx.trainerUpdatesSpaceId;
 			return {
 				triggerType: "TRAINER_POST",
 				prefKey: "trainerPost",
-				title: "New trainer update",
-				body: notification.text,
+				title: isTrainerUpdatesPost
+					? actor
+						? `${actor} posted a trainer update`
+						: "New trainer update"
+					: actorActionTitle(
+						notification,
+						notification.spaceTitle
+							? `New post in ${notification.spaceTitle}`
+							: "New post in Circle",
+					),
+				body: bodyText(
+					notification,
+					isTrainerUpdatesPost
+						? "Open the latest trainer update in Circle."
+						: "Open the latest post in Circle.",
+				),
 				data: deepLink,
 			};
 		}
