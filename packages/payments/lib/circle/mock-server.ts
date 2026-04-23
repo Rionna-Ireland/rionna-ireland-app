@@ -1,5 +1,13 @@
 import { logger } from "@repo/logs";
+import {
+	classifyStatus,
+	compareIds,
+	normaliseCircleNotification,
+} from "./real";
 import type {
+	CircleCallOutcome,
+	CircleNotification,
+	CircleNotificationPage,
 	CircleService,
 	CreateMemberParams,
 	CreateMemberResult,
@@ -187,5 +195,102 @@ export class MockServerCircleService implements CircleService {
 			accessToken: data.access_token,
 			refreshToken: data.refresh_token,
 		};
+	}
+
+	/**
+	 * Fetch a member's notifications from circle-mock's Headless proxy.
+	 *
+	 * Mirrors `RealCircleService.getMemberNotifications` (same helpers, same
+	 * CircleCallOutcome shape) so behavior stays consistent across modes.
+	 * T6 will extend circle-mock to serve scripted notification pages at
+	 * `/api/headless/v1/notifications` in the same `{ records, has_next_page }`
+	 * shape Circle uses.
+	 */
+	async getMemberNotifications(
+		circleMemberId: string,
+		opts: { sinceNotificationId: string | null; limit?: number },
+	): Promise<CircleCallOutcome<CircleNotificationPage>> {
+		// Mint a member-scoped JWT via the existing mock-server token endpoint.
+		// getMemberToken throws on failure — wrap into an outcome to keep parity
+		// with RealCircleService. T7 will refactor getMemberToken to return an
+		// outcome directly; until then, default to server_error/retriable so
+		// transient mock-server hiccups don't poison the poller.
+		let accessToken: string;
+		try {
+			const token = await this.getMemberToken(circleMemberId);
+			accessToken = token.accessToken;
+		} catch (err) {
+			logger.error(
+				"[MockServerCircle] getMemberToken failed for notifications poll",
+				{
+					circleMemberId,
+					error: err instanceof Error ? err.message : String(err),
+				},
+			);
+			return { ok: false, reason: "server_error", retriable: true, raw: err };
+		}
+
+		const url = new URL(`${this.baseUrl}/api/headless/v1/notifications`);
+		if (opts.sinceNotificationId) {
+			url.searchParams.set("after_id", opts.sinceNotificationId);
+		}
+		url.searchParams.set("per_page", String(opts.limit ?? 50));
+
+		let res: Response;
+		try {
+			res = await fetch(url, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					"Content-Type": "application/json",
+				},
+			});
+		} catch (err) {
+			logger.warn("[MockServerCircle] Notifications fetch failed (network)", {
+				circleMemberId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return { ok: false, reason: "network", retriable: true, raw: err };
+		}
+
+		if (!res.ok) {
+			const raw = await res.text().catch(() => undefined);
+			const { reason, retriable } = classifyStatus(res.status);
+			logger.warn("[MockServerCircle] Notifications fetch non-2xx", {
+				circleMemberId,
+				status: res.status,
+				reason,
+			});
+			return { ok: false, reason, retriable, raw };
+		}
+
+		let body: unknown;
+		try {
+			body = await res.json();
+		} catch (err) {
+			logger.warn("[MockServerCircle] Notifications response not JSON", {
+				circleMemberId,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return { ok: false, reason: "server_error", retriable: true, raw: err };
+		}
+
+		const records = (body as { records?: unknown })?.records;
+		const items = Array.isArray(records)
+			? records
+					.map(normaliseCircleNotification)
+					.filter((n): n is CircleNotification => n !== null)
+			: [];
+
+		const sortedItems = [...items].sort((a, b) => compareIds(a.id, b.id));
+		if (items.some((n, i) => n.id !== sortedItems[i]!.id)) {
+			logger.warn(
+				"[MockServerCircle] Notifications returned out of order; sorted defensively",
+				{ count: items.length },
+			);
+		}
+		const nextCursor =
+			sortedItems.length > 0 ? sortedItems[sortedItems.length - 1]!.id : null;
+
+		return { ok: true, data: { items: sortedItems, nextCursor } };
 	}
 }

@@ -49,8 +49,11 @@ export function classifyStatus(
 /**
  * Compare two numeric-as-string ids. Uses BigInt for large ids; falls back
  * to lexicographic compare if either id isn't a valid BigInt.
+ *
+ * Exported so MockServerCircleService (T5) can reuse the same defensive sort
+ * without duplicating the logic. T7 may extract into a shared http-utils file.
  */
-function compareIds(a: string, b: string): number {
+export function compareIds(a: string, b: string): number {
 	try {
 		const zero = BigInt(0);
 		const d = BigInt(a) - BigInt(b);
@@ -72,7 +75,7 @@ function compareIds(a: string, b: string): number {
  * corrupt the cursor (`id: "undefined"` becomes the next `after_id`), so
  * they must be dropped rather than normalised.
  */
-function normaliseCircleNotification(record: unknown): CircleNotification | null {
+export function normaliseCircleNotification(record: unknown): CircleNotification | null {
 	const r = (record ?? {}) as Record<string, unknown>;
 
 	if (r?.id == null) {

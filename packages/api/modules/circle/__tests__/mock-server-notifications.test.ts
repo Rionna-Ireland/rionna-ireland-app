@@ -1,0 +1,243 @@
+/**
+ * MockServerCircleService.getMemberNotifications tests
+ *
+ * Verifies that the mock-server proxy implementation:
+ * - Mints a member token via the circle-mock /api/v1/headless/auth_token endpoint
+ * - Calls GET {baseUrl}/api/headless/v1/notifications with after_id / per_page
+ * - Normalises circle-mock's wire JSON (mirrors Circle's real shape) into CircleNotification
+ * - Returns CircleCallOutcome for all HTTP / network / token failures
+ * - Honours the base URL passed into the constructor
+ *
+ * Part of S6-01 (T5). T6 extends circle-mock to actually serve this endpoint.
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+const { mockLogger } = vi.hoisted(() => ({
+	mockLogger: {
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+		debug: vi.fn(),
+		log: vi.fn(),
+	},
+}));
+
+vi.mock("@repo/logs", () => ({
+	logger: mockLogger,
+}));
+
+import { MockServerCircleService } from "@repo/payments/lib/circle";
+
+const BASE_URL = "http://localhost:5100";
+
+function makeService() {
+	return new MockServerCircleService({
+		baseUrl: BASE_URL,
+		adminToken: "admin-token",
+		appToken: "app-token",
+	});
+}
+
+function mockFetchJson(status: number, jsonBody: unknown) {
+	const res = {
+		ok: status >= 200 && status < 300,
+		status,
+		json: async () => jsonBody,
+		text: async () => JSON.stringify(jsonBody),
+	};
+	return vi.fn().mockResolvedValue(res);
+}
+
+describe("MockServerCircleService.getMemberNotifications", () => {
+	let svc: MockServerCircleService;
+
+	beforeEach(() => {
+		svc = makeService();
+		vi.stubGlobal("fetch", vi.fn());
+		mockLogger.info.mockClear();
+		mockLogger.warn.mockClear();
+		mockLogger.error.mockClear();
+		mockLogger.debug.mockClear();
+		mockLogger.log.mockClear();
+		// Default: token mint succeeds.
+		vi.spyOn(svc, "getMemberToken").mockResolvedValue({
+			accessToken: "jwt-for-member",
+			refreshToken: "refresh",
+		});
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	it("returns normalised page + cursor on 200 with records", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{
+						id: 1001,
+						notification_type: "post_mention",
+						created_at: "2026-04-23T10:00:00Z",
+						actor: { id: 7, name: "Alice" },
+						subject: { type: "post", id: 55, space_id: 12, url: "https://c/p/55" },
+						text: "Alice mentioned you",
+					},
+				],
+				has_next_page: false,
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		expect(outcome.ok).toBe(true);
+		if (!outcome.ok) return;
+		expect(outcome.data.items).toHaveLength(1);
+		expect(outcome.data.items[0]).toMatchObject({
+			id: "1001",
+			type: "mention",
+			createdAt: "2026-04-23T10:00:00Z",
+			actor: { id: "7", name: "Alice" },
+			subject: {
+				kind: "post",
+				id: "55",
+				spaceId: "12",
+				url: "https://c/p/55",
+			},
+			text: "Alice mentioned you",
+		});
+		expect(outcome.data.nextCursor).toBe("1001");
+	});
+
+	it("returns empty items + null cursor on 200 with no records", async () => {
+		vi.stubGlobal("fetch", mockFetchJson(200, { records: [], has_next_page: false }));
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: "99",
+		});
+
+		expect(outcome.ok).toBe(true);
+		if (!outcome.ok) return;
+		expect(outcome.data.items).toEqual([]);
+		expect(outcome.data.nextCursor).toBeNull();
+	});
+
+	it("maps 404 to not_found / not retriable", async () => {
+		vi.stubGlobal("fetch", mockFetchJson(404, {}));
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+		expect(outcome).toMatchObject({ ok: false, reason: "not_found", retriable: false });
+	});
+
+	it("maps 500 to server_error / retriable", async () => {
+		vi.stubGlobal("fetch", mockFetchJson(500, {}));
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+		expect(outcome).toMatchObject({ ok: false, reason: "server_error", retriable: true });
+	});
+
+	it("maps fetch network errors to network / retriable", async () => {
+		vi.stubGlobal("fetch", vi.fn().mockRejectedValueOnce(new Error("ECONNRESET")));
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+		expect(outcome).toMatchObject({ ok: false, reason: "network", retriable: true });
+	});
+
+	it("propagates sinceNotificationId as after_id query param", async () => {
+		const fetchMock = mockFetchJson(200, { records: [] });
+		vi.stubGlobal("fetch", fetchMock);
+
+		await svc.getMemberNotifications("42", { sinceNotificationId: "1234" });
+
+		const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
+		expect(calledUrl).toContain("after_id=1234");
+	});
+
+	it("defaults per_page to 50 when limit is omitted", async () => {
+		const fetchMock = mockFetchJson(200, { records: [] });
+		vi.stubGlobal("fetch", fetchMock);
+
+		await svc.getMemberNotifications("42", { sinceNotificationId: null });
+
+		const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
+		expect(calledUrl).toContain("per_page=50");
+	});
+
+	it("honors custom limit via per_page", async () => {
+		const fetchMock = mockFetchJson(200, { records: [] });
+		vi.stubGlobal("fetch", fetchMock);
+
+		await svc.getMemberNotifications("42", { sinceNotificationId: null, limit: 10 });
+
+		const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
+		expect(calledUrl).toContain("per_page=10");
+	});
+
+	it("calls against the constructor-provided base URL", async () => {
+		const customBase = "http://mock-host.test:9999";
+		const customSvc = new MockServerCircleService({
+			baseUrl: customBase,
+			adminToken: "a",
+			appToken: "b",
+		});
+		vi.spyOn(customSvc, "getMemberToken").mockResolvedValue({
+			accessToken: "jwt",
+			refreshToken: "r",
+		});
+
+		const fetchMock = mockFetchJson(200, { records: [] });
+		vi.stubGlobal("fetch", fetchMock);
+
+		await customSvc.getMemberNotifications("42", { sinceNotificationId: null });
+
+		const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
+		expect(calledUrl).toContain(customBase);
+		expect(calledUrl).toContain("/api/headless/v1/notifications");
+	});
+
+	it("token mint throw → server_error (notifications fetch not called)", async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal("fetch", fetchMock);
+		vi.spyOn(svc, "getMemberToken").mockRejectedValueOnce(
+			new Error("token mint failed"),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		expect(outcome).toMatchObject({
+			ok: false,
+			reason: "server_error",
+			retriable: true,
+		});
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("sorts items by id ascending and sets nextCursor to last id", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{ id: 102, notification_type: "post_created", created_at: "t3", subject: { type: "post", id: 3 }, text: "" },
+					{ id: 100, notification_type: "post_created", created_at: "t1", subject: { type: "post", id: 1 }, text: "" },
+					{ id: 101, notification_type: "post_created", created_at: "t2", subject: { type: "post", id: 2 }, text: "" },
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+		if (!outcome.ok) throw new Error("expected ok");
+		expect(outcome.data.items.map((i) => i.id)).toEqual(["100", "101", "102"]);
+		expect(outcome.data.nextCursor).toBe("102");
+	});
+});
