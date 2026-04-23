@@ -1,1 +1,5 @@
-export { type OrganizationMetadata, parseOrgMetadata } from "./organization-metadata";
+export {
+	type CircleNotificationCategory,
+	type OrganizationMetadata,
+	parseOrgMetadata,
+} from "./organization-metadata";

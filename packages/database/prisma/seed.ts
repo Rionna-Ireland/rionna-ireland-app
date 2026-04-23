@@ -27,7 +27,14 @@ async function main() {
 			metadata: JSON.stringify({
 				brand: { primaryColor: "#374B6C" },
 				racing: { provider: "mock" },
-				circle: { communityDomain: "www.rionna-e53dba.club" },
+					circle: {
+						communityDomain: "www.rionna-e53dba.club",
+						poll: {
+							enabled: false,
+							cadenceMinutes: 5,
+							enabledCategories: ["trainer_post", "horse_discussion", "direct_engagement", "dm"],
+						},
+					},
 				billing: {
 					stripeProductId: "prod_test",
 					stripePriceId: "price_test",

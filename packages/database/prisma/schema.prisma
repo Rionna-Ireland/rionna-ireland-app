@@ -183,6 +183,10 @@ model Member {
   circleProvisionedAt DateTime?
   circleStatus        String?
 
+  // Circle notification poller cursor (S6-01)
+  circleLastSeenNotificationId String?
+  circleLastPolledAt           DateTime?
+
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
@@ -522,6 +526,11 @@ enum PushTriggerType {
   TRAINER_POST
   NEWS_POST
   SYSTEM
+  CIRCLE_MENTION
+  CIRCLE_REPLY
+  CIRCLE_REACTION
+  CIRCLE_DM
+  CIRCLE_HORSE_DISCUSSION
 }
 
 enum PushStatus {

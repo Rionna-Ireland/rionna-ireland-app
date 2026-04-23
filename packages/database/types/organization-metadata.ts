@@ -1,3 +1,11 @@
+export type CircleNotificationCategory =
+	| "trainer_post"
+	| "horse_discussion"
+	| "direct_engagement"
+	| "dm"
+	| "event_reminder"
+	| "admin_event";
+
 export interface OrganizationMetadata {
 	brand?: {
 		primaryColor?: string;
@@ -15,6 +23,11 @@ export interface OrganizationMetadata {
 		communityDomain?: string;
 		trainerUpdatesSpaceId?: string;
 		webhookSecretRef?: string;
+		poll?: {
+			enabled: boolean;
+			cadenceMinutes: number;
+			enabledCategories: CircleNotificationCategory[];
+		};
 	};
 	billing?: {
 		stripeProductId?: string;

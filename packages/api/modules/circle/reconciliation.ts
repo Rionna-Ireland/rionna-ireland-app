@@ -25,6 +25,7 @@ export async function reconcileCircleMembers(
 	});
 	if (!org?.slug) {
 		logger.warn("[Reconciliation] Organization not found or missing slug", {
+			surface: "circle.reconciliation",
 			organizationId,
 		});
 		return { provisioned: 0, deactivated: 0, errors: 0 };
@@ -54,18 +55,60 @@ export async function reconcileCircleMembers(
 	});
 
 	for (const member of unprovisionedMembers) {
+		// Track whether this member was already marked as a prior provisioning
+		// failure. If so, a second failure here is a "repeat" — we emit a
+		// distinct event so ops/alerting can surface Members that are stuck.
+		const wasPreviouslyFailed = member.circleStatus === "provisioning_failed";
+
 		try {
-			const result = await circle.createMember({
+			const outcome = await circle.createMember({
 				email: member.user.email,
 				name: member.user.name ?? member.user.email,
 				ssoUserId: member.userId,
 				idempotencyKey: `reconcile-provision-${member.id}`,
 			});
 
+			if (!outcome.ok) {
+				errors++;
+				logger.error("[Reconciliation] Failed to provision member", {
+					surface: "circle.reconciliation",
+					memberId: member.id,
+					userId: member.userId,
+					orgId: organizationId,
+					reason: outcome.reason,
+					retriable: outcome.retriable,
+				});
+				if (!outcome.retriable) {
+					// Non-retriable failure — mark the member so we don't keep
+					// hammering Circle every cron tick. Drift alerts / manual
+					// ops can surface these.
+					await db.member.update({
+						where: { id: member.id },
+						data: { circleStatus: "provisioning_failed" },
+					});
+				}
+				if (wasPreviouslyFailed) {
+					// Repeat failure — Member has now failed provisioning in at
+					// least two reconciliation sweeps. This is the signal for
+					// ops/on-call; Sentry capture wires in via @repo/logs when
+					// that bridge lands (S5-01).
+					logger.error("circle.provisioning.failed_permanent", {
+						surface: "circle.reconciliation",
+						memberId: member.id,
+						userId: member.userId,
+						orgId: organizationId,
+						circleStatus: "provisioning_failed",
+						reason: outcome.reason,
+						retriable: outcome.retriable,
+					});
+				}
+				continue;
+			}
+
 			await db.member.update({
 				where: { id: member.id },
 				data: {
-					circleMemberId: result.circleMemberId,
+					circleMemberId: outcome.data.circleMemberId,
 					circleProvisionedAt: new Date(),
 					circleStatus: "active",
 				},
@@ -73,17 +116,32 @@ export async function reconcileCircleMembers(
 
 			provisioned++;
 			logger.info("[Reconciliation] Provisioned Circle member", {
+				surface: "circle.reconciliation",
+				memberId: member.id,
 				userId: member.userId,
 				orgId: organizationId,
-				circleMemberId: result.circleMemberId,
+				circleMemberId: outcome.data.circleMemberId,
 			});
 		} catch (error) {
 			errors++;
 			logger.error("[Reconciliation] Failed to provision member", {
+				surface: "circle.reconciliation",
+				memberId: member.id,
 				userId: member.userId,
 				orgId: organizationId,
 				error: error instanceof Error ? error.message : String(error),
 			});
+			if (wasPreviouslyFailed) {
+				logger.error("circle.provisioning.failed_permanent", {
+					surface: "circle.reconciliation",
+					memberId: member.id,
+					userId: member.userId,
+					orgId: organizationId,
+					circleStatus: "provisioning_failed",
+					reason: "server_error",
+					retriable: false,
+				});
+			}
 		}
 	}
 
@@ -110,7 +168,20 @@ export async function reconcileCircleMembers(
 
 	for (const member of staleActiveMembers) {
 		try {
-			await circle.deactivateMember(member.circleMemberId!);
+			const outcome = await circle.deactivateMember(member.circleMemberId!);
+
+			if (!outcome.ok) {
+				errors++;
+				logger.error("[Reconciliation] Failed to deactivate member", {
+					surface: "circle.reconciliation",
+					memberId: member.id,
+					userId: member.userId,
+					orgId: organizationId,
+					reason: outcome.reason,
+					retriable: outcome.retriable,
+				});
+				continue;
+			}
 
 			await db.member.update({
 				where: { id: member.id },
@@ -119,6 +190,8 @@ export async function reconcileCircleMembers(
 
 			deactivated++;
 			logger.info("[Reconciliation] Deactivated Circle member", {
+				surface: "circle.reconciliation",
+				memberId: member.id,
 				userId: member.userId,
 				orgId: organizationId,
 				circleMemberId: member.circleMemberId,
@@ -126,6 +199,8 @@ export async function reconcileCircleMembers(
 		} catch (error) {
 			errors++;
 			logger.error("[Reconciliation] Failed to deactivate member", {
+				surface: "circle.reconciliation",
+				memberId: member.id,
 				userId: member.userId,
 				orgId: organizationId,
 				error: error instanceof Error ? error.message : String(error),

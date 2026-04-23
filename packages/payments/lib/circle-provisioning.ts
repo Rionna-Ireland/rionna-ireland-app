@@ -41,17 +41,39 @@ export async function provisionCircleMember(
 		return;
 	}
 
-	const result = await service.createMember({
+	const outcome = await service.createMember({
 		email: user.email,
 		name: user.name ?? user.email,
 		ssoUserId: user.id,
 		idempotencyKey,
 	});
 
+	if (!outcome.ok) {
+		// Don't throw — let the Stripe webhook succeed so Stripe doesn't retry.
+		// Mark the member so S1-06 reconciliation picks up the provisioning
+		// work on the next cron tick (ticket D9 — no heroic retries in the hot path).
+		await db.member.update({
+			where: { id: member.id },
+			data: {
+				circleMemberId: null,
+				circleStatus: "provisioning_failed",
+			},
+		});
+		logger.error("[Circle] Member provisioning failed; deferring to reconciliation", {
+			surface: "circle.provisioning",
+			memberId: member.id,
+			userId: member.userId,
+			organizationId: member.organizationId,
+			reason: outcome.reason,
+			retriable: outcome.retriable,
+		});
+		return;
+	}
+
 	await db.member.update({
 		where: { id: member.id },
 		data: {
-			circleMemberId: result.circleMemberId,
+			circleMemberId: outcome.data.circleMemberId,
 			circleProvisionedAt: new Date(),
 			circleStatus: "active",
 		},
@@ -59,7 +81,7 @@ export async function provisionCircleMember(
 
 	logger.info("[Circle] Member provisioned", {
 		memberId: member.id,
-		circleMemberId: result.circleMemberId,
+		circleMemberId: outcome.data.circleMemberId,
 	});
 }
 
@@ -77,7 +99,23 @@ export async function deactivateCircleMember(
 	if (!dbMember?.organization?.slug) return;
 
 	const service = createCircleService(dbMember.organization.slug);
-	await service.deactivateMember(member.circleMemberId);
+	const outcome = await service.deactivateMember(member.circleMemberId);
+
+	if (!outcome.ok) {
+		// Don't throw — reconciliation will retry on next tick.
+		logger.error(
+			"[Circle] Member deactivation failed; deferring to reconciliation",
+			{
+				surface: "circle.provisioning",
+				memberId: member.id,
+				organizationId: dbMember.organizationId,
+				circleMemberId: member.circleMemberId,
+				reason: outcome.reason,
+				retriable: outcome.retriable,
+			},
+		);
+		return;
+	}
 
 	await db.member.update({
 		where: { id: member.id },
@@ -107,13 +145,28 @@ export async function reactivateCircleMember(
 	if (!user) return;
 
 	const service = createCircleService(dbMember.organization.slug);
-	await service.reactivateMember({
+	const outcome = await service.reactivateMember({
 		email: user.email,
 		name: user.name ?? user.email,
 		ssoUserId: user.id,
 		// Stable across retries so Circle deduplicates reactivation requests.
 		idempotencyKey: `reactivate-${member.id}`,
 	});
+
+	if (!outcome.ok) {
+		logger.error(
+			"[Circle] Member reactivation failed; deferring to reconciliation",
+			{
+				surface: "circle.provisioning",
+				memberId: member.id,
+				organizationId: dbMember.organizationId,
+				circleMemberId: member.circleMemberId,
+				reason: outcome.reason,
+				retriable: outcome.retriable,
+			},
+		);
+		return;
+	}
 
 	await db.member.update({
 		where: { id: member.id },
@@ -145,7 +198,19 @@ export async function deleteCircleMember(
 	}
 
 	const service = createCircleService(member.organization.slug);
-	await service.deleteMember(circleMemberId);
+	const outcome = await service.deleteMember(circleMemberId);
+
+	if (!outcome.ok) {
+		logger.error("[Circle] Member deletion failed", {
+			surface: "circle.provisioning",
+			circleMemberId,
+			memberId: member.id,
+			organizationId: member.organizationId,
+			reason: outcome.reason,
+			retriable: outcome.retriable,
+		});
+		return;
+	}
 
 	logger.info("[Circle] Member deleted", { circleMemberId });
 }
