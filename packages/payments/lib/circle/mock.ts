@@ -11,6 +11,9 @@
 
 import { logger } from "@repo/logs";
 import type {
+	CircleCallOutcome,
+	CircleNotification,
+	CircleNotificationPage,
 	CircleService,
 	CreateMemberParams,
 	CreateMemberResult,
@@ -29,6 +32,7 @@ interface MockMember {
 export class MockCircleService implements CircleService {
 	private members = new Map<string, MockMember>();
 	private idempotencyKeys = new Map<string, string>();
+	private notifications = new Map<string, CircleNotification[]>();
 	private nextId = 90001;
 
 	async createMember(params: CreateMemberParams): Promise<CreateMemberResult> {
@@ -128,6 +132,30 @@ export class MockCircleService implements CircleService {
 		};
 	}
 
+	async getMemberNotifications(
+		circleMemberId: string,
+		opts: { sinceNotificationId: string | null; limit?: number },
+	): Promise<CircleCallOutcome<CircleNotificationPage>> {
+		const all = this.notifications.get(circleMemberId) ?? [];
+		const startIdx = opts.sinceNotificationId
+			? all.findIndex((n) => n.id === opts.sinceNotificationId) + 1
+			: 0;
+		const limit = opts.limit ?? 50;
+		const slice = all.slice(startIdx, startIdx + limit);
+		// Per CircleNotificationPage JSDoc: nextCursor is null if the page is empty.
+		const nextCursor =
+			slice.length > 0 ? (slice[slice.length - 1]?.id ?? null) : null;
+
+		logger.info("[MockCircle] Fetched member notifications", {
+			circleMemberId,
+			sinceNotificationId: opts.sinceNotificationId,
+			returned: slice.length,
+			nextCursor,
+		});
+
+		return { ok: true, data: { items: slice, nextCursor } };
+	}
+
 	/** Test helper: get current member count */
 	getMemberCount(): number {
 		return this.members.size;
@@ -136,5 +164,35 @@ export class MockCircleService implements CircleService {
 	/** Test helper: get a member's current status */
 	getMemberStatus(circleMemberId: string): string | undefined {
 		return this.members.get(circleMemberId)?.status;
+	}
+
+	/**
+	 * Test helper — seed notifications for a given circleMemberId.
+	 * Items are normalised (defaults filled in) so tests can pass partial
+	 * shapes and only override the fields that matter to a given assertion.
+	 *
+	 * Callers should pass items in oldest→newest order; the mock preserves
+	 * the order and treats the cursor as exclusive.
+	 */
+	seedNotifications(
+		circleMemberId: string,
+		items: Array<Partial<CircleNotification>>,
+	): void {
+		this.notifications.set(
+			circleMemberId,
+			items.map((it, i) => ({
+				id: it.id ?? `mock-n-${i}`,
+				type: it.type ?? "post",
+				createdAt:
+					it.createdAt ?? new Date(Date.now() + i * 1000).toISOString(),
+				actor: it.actor ?? { id: "mock-actor", name: "Mock Actor" },
+				subject: it.subject ?? {
+					kind: "post",
+					id: `mock-p-${i}`,
+					url: `https://mock/posts/${i}`,
+				},
+				text: it.text ?? "mock notification",
+			})),
+		);
 	}
 }
