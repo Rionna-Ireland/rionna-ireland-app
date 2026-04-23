@@ -184,7 +184,7 @@ model Member {
   circleStatus        String?
 
   // Circle notification poller cursor (S6-01)
-  lastSeenCircleNotificationId String?
+  circleLastSeenNotificationId String?
 
   @@unique([organizationId, userId])
   @@index([organizationId])
