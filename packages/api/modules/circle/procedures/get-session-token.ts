@@ -13,6 +13,7 @@
 
 import { ORPCError } from "@orpc/server";
 import { db, parseOrgMetadata } from "@repo/database";
+import { logger } from "@repo/logs";
 import {
 	buildCircleCommunityTargetUrl,
 	createCircleService,
@@ -104,7 +105,33 @@ export const getSessionToken = protectedProcedure
 		}
 
 		const service = createCircleService(org.slug);
-		const tokens = await service.getMemberToken(member.circleMemberId);
+		const tokenOutcome = await service.getMemberToken(member.circleMemberId);
+		if (!tokenOutcome.ok) {
+			// Log reason/raw server-side; keep the client error message generic.
+			logger.error("[Circle] Session token mint failed", {
+				userId: user.id,
+				organizationId,
+				circleMemberId: member.circleMemberId,
+				reason: tokenOutcome.reason,
+				retriable: tokenOutcome.retriable,
+			});
+
+			if (tokenOutcome.reason === "not_found") {
+				throw new ORPCError("FAILED_PRECONDITION", {
+					message:
+						"Circle member not found. Wait for reconciliation or contact support.",
+				});
+			}
+			if (tokenOutcome.reason === "auth") {
+				throw new ORPCError("UNAUTHORIZED", {
+					message: "Circle authentication failed. Please try again later.",
+				});
+			}
+			throw new ORPCError("INTERNAL_SERVER_ERROR", {
+				message: "Unable to mint Circle session token. Please try again.",
+			});
+		}
+		const tokens = tokenOutcome.data;
 		const metadata = parseOrgMetadata(org.metadata as string | null);
 
 		return {

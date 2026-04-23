@@ -1,5 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import { db, parseOrgMetadata } from "@repo/database";
+import { logger } from "@repo/logs";
 import {
 	buildCircleCommunityTargetUrl,
 	createCircleService,
@@ -41,7 +42,18 @@ export const getTrainerPosts = protectedProcedure
 		if (!member?.circleMemberId) return [];
 
 		const service = createCircleService(org.slug);
-		const { accessToken } = await service.getMemberToken(member.circleMemberId);
+		const tokenOutcome = await service.getMemberToken(member.circleMemberId);
+		if (!tokenOutcome.ok) {
+			// Non-blocking dashboard tile — log and return empty on failure.
+			logger.warn("[Circle] Trainer posts: token mint failed", {
+				userId: user.id,
+				organizationId: input.organizationId,
+				circleMemberId: member.circleMemberId,
+				reason: tokenOutcome.reason,
+			});
+			return [];
+		}
+		const { accessToken } = tokenOutcome.data;
 
 		const response = await fetch(
 			`${getCircleHeadlessApiBaseUrl()}/spaces/${spaceId}/posts?per_page=${input.limit}&sort=latest`,

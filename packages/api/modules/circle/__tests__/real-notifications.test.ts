@@ -62,8 +62,11 @@ describe("RealCircleService.getMemberNotifications", () => {
 		mockLogger.log.mockClear();
 		// Default: token mint succeeds.
 		vi.spyOn(svc, "getMemberToken").mockResolvedValue({
-			accessToken: "jwt-for-member",
-			refreshToken: "refresh",
+			ok: true,
+			data: {
+				accessToken: "jwt-for-member",
+				refreshToken: "refresh",
+			},
 		});
 	});
 
@@ -212,12 +215,15 @@ describe("RealCircleService.getMemberNotifications", () => {
 		expect(calledUrl).toContain("per_page=10");
 	});
 
-	it("token mint throw → server_error (notifications fetch not called)", async () => {
+	it("token mint failure propagates (notifications fetch not called)", async () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal("fetch", fetchMock);
-		vi.spyOn(svc, "getMemberToken").mockRejectedValueOnce(
-			new Error("token mint failed"),
-		);
+		vi.spyOn(svc, "getMemberToken").mockResolvedValueOnce({
+			ok: false,
+			reason: "server_error",
+			retriable: true,
+			raw: new Error("token mint failed"),
+		});
 
 		const outcome = await svc.getMemberNotifications("42", {
 			sinceNotificationId: null,

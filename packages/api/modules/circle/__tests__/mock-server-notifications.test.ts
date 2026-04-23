@@ -62,8 +62,11 @@ describe("MockServerCircleService.getMemberNotifications", () => {
 		mockLogger.log.mockClear();
 		// Default: token mint succeeds.
 		vi.spyOn(svc, "getMemberToken").mockResolvedValue({
-			accessToken: "jwt-for-member",
-			refreshToken: "refresh",
+			ok: true,
+			data: {
+				accessToken: "jwt-for-member",
+				refreshToken: "refresh",
+			},
 		});
 	});
 
@@ -188,8 +191,11 @@ describe("MockServerCircleService.getMemberNotifications", () => {
 			appToken: "b",
 		});
 		vi.spyOn(customSvc, "getMemberToken").mockResolvedValue({
-			accessToken: "jwt",
-			refreshToken: "r",
+			ok: true,
+			data: {
+				accessToken: "jwt",
+				refreshToken: "r",
+			},
 		});
 
 		const fetchMock = mockFetchJson(200, { records: [] });
@@ -202,12 +208,15 @@ describe("MockServerCircleService.getMemberNotifications", () => {
 		expect(calledUrl).toContain("/api/headless/v1/notifications");
 	});
 
-	it("token mint throw → server_error (notifications fetch not called)", async () => {
+	it("token mint failure propagates (notifications fetch not called)", async () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal("fetch", fetchMock);
-		vi.spyOn(svc, "getMemberToken").mockRejectedValueOnce(
-			new Error("token mint failed"),
-		);
+		vi.spyOn(svc, "getMemberToken").mockResolvedValueOnce({
+			ok: false,
+			reason: "server_error",
+			retriable: true,
+			raw: new Error("token mint failed"),
+		});
 
 		const outcome = await svc.getMemberNotifications("42", {
 			sinceNotificationId: null,

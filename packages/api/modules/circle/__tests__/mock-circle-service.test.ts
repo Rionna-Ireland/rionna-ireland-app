@@ -5,12 +5,15 @@
  * - Incrementing IDs
  * - Idempotency key dedup
  * - State transitions (active → deactivated → deleted)
- * - Error handling (404 for unknown members)
+ * - Error outcomes (not_found for unknown members, invalid_input for
+ *   already-deactivated members)
  * - Deterministic token minting
+ *
+ * Updated in T7 to consume the CircleCallOutcome<T> shape.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { MockCircleService, CircleApiError } from "@repo/payments/lib/circle";
+import { MockCircleService } from "@repo/payments/lib/circle";
 
 vi.mock("@repo/logs", () => ({
 	logger: {
@@ -43,8 +46,10 @@ describe("MockCircleService", () => {
 				idempotencyKey: "evt_002",
 			});
 
-			expect(first.circleMemberId).toBe("mock-circle-90001");
-			expect(second.circleMemberId).toBe("mock-circle-90002");
+			if (!first.ok) throw new Error("expected ok");
+			if (!second.ok) throw new Error("expected ok");
+			expect(first.data.circleMemberId).toBe("mock-circle-90001");
+			expect(second.data.circleMemberId).toBe("mock-circle-90002");
 			expect(service.getMemberCount()).toBe(2);
 		});
 
@@ -62,148 +67,162 @@ describe("MockCircleService", () => {
 				idempotencyKey: "evt_001",
 			});
 
-			expect(duplicate.circleMemberId).toBe(first.circleMemberId);
+			if (!first.ok || !duplicate.ok) throw new Error("expected ok");
+			expect(duplicate.data.circleMemberId).toBe(first.data.circleMemberId);
 			expect(service.getMemberCount()).toBe(1);
 		});
 	});
 
 	describe("deactivateMember", () => {
 		it("deactivates an active member", async () => {
-			const { circleMemberId } = await service.createMember({
+			const created = await service.createMember({
 				email: "alice@example.com",
 				name: "Alice",
 				ssoUserId: "user-1",
 				idempotencyKey: "evt_001",
 			});
+			if (!created.ok) throw new Error("expected ok");
+			const { circleMemberId } = created.data;
 
-			await service.deactivateMember(circleMemberId);
+			const outcome = await service.deactivateMember(circleMemberId);
+			expect(outcome.ok).toBe(true);
 			expect(service.getMemberStatus(circleMemberId)).toBe("deactivated");
 		});
 
-		it("throws 404 for an unknown member", async () => {
-			await expect(
-				service.deactivateMember("nonexistent"),
-			).rejects.toThrow(CircleApiError);
-
-			try {
-				await service.deactivateMember("nonexistent");
-			} catch (error) {
-				expect(error).toBeInstanceOf(CircleApiError);
-				expect((error as CircleApiError).statusCode).toBe(404);
-			}
+		it("returns not_found for an unknown member", async () => {
+			const outcome = await service.deactivateMember("nonexistent");
+			expect(outcome).toMatchObject({
+				ok: false,
+				reason: "not_found",
+				retriable: false,
+			});
 		});
 
-		it("throws 422 for an already deactivated member", async () => {
-			const { circleMemberId } = await service.createMember({
+		it("returns invalid_input for an already-deactivated member", async () => {
+			const created = await service.createMember({
 				email: "alice@example.com",
 				name: "Alice",
 				ssoUserId: "user-1",
 				idempotencyKey: "evt_001",
 			});
+			if (!created.ok) throw new Error("expected ok");
+			const { circleMemberId } = created.data;
 
 			await service.deactivateMember(circleMemberId);
+			const outcome = await service.deactivateMember(circleMemberId);
 
-			try {
-				await service.deactivateMember(circleMemberId);
-			} catch (error) {
-				expect(error).toBeInstanceOf(CircleApiError);
-				expect((error as CircleApiError).statusCode).toBe(422);
-			}
+			expect(outcome).toMatchObject({
+				ok: false,
+				reason: "invalid_input",
+				retriable: false,
+			});
 		});
 	});
 
 	describe("reactivateMember", () => {
 		it("reactivates a deactivated member by ssoUserId", async () => {
-			const { circleMemberId } = await service.createMember({
+			const created = await service.createMember({
 				email: "alice@example.com",
 				name: "Alice",
 				ssoUserId: "user-1",
 				idempotencyKey: "evt_001",
 			});
+			if (!created.ok) throw new Error("expected ok");
+			const { circleMemberId } = created.data;
 
 			await service.deactivateMember(circleMemberId);
 			expect(service.getMemberStatus(circleMemberId)).toBe("deactivated");
 
-			await service.reactivateMember({
+			const outcome = await service.reactivateMember({
 				email: "alice@example.com",
 				name: "Alice",
 				ssoUserId: "user-1",
 				idempotencyKey: "reactivate-001",
 			});
 
+			expect(outcome.ok).toBe(true);
 			expect(service.getMemberStatus(circleMemberId)).toBe("active");
 		});
 
 		it("creates a new member if the original was hard-deleted", async () => {
-			const { circleMemberId } = await service.createMember({
+			const created = await service.createMember({
 				email: "alice@example.com",
 				name: "Alice",
 				ssoUserId: "user-1",
 				idempotencyKey: "evt_001",
 			});
+			if (!created.ok) throw new Error("expected ok");
+			const { circleMemberId } = created.data;
 
 			await service.deleteMember(circleMemberId);
 			expect(service.getMemberCount()).toBe(0);
 
-			await service.reactivateMember({
+			const outcome = await service.reactivateMember({
 				email: "alice@example.com",
 				name: "Alice",
 				ssoUserId: "user-1",
 				idempotencyKey: "reactivate-001",
 			});
 
+			expect(outcome.ok).toBe(true);
 			expect(service.getMemberCount()).toBe(1);
 		});
 	});
 
 	describe("deleteMember", () => {
 		it("removes a member entirely", async () => {
-			const { circleMemberId } = await service.createMember({
+			const created = await service.createMember({
 				email: "alice@example.com",
 				name: "Alice",
 				ssoUserId: "user-1",
 				idempotencyKey: "evt_001",
 			});
+			if (!created.ok) throw new Error("expected ok");
+			const { circleMemberId } = created.data;
 
-			await service.deleteMember(circleMemberId);
+			const outcome = await service.deleteMember(circleMemberId);
+			expect(outcome.ok).toBe(true);
 			expect(service.getMemberCount()).toBe(0);
 			expect(service.getMemberStatus(circleMemberId)).toBeUndefined();
 		});
 
-		it("throws 404 for an unknown member", async () => {
-			try {
-				await service.deleteMember("nonexistent");
-			} catch (error) {
-				expect(error).toBeInstanceOf(CircleApiError);
-				expect((error as CircleApiError).statusCode).toBe(404);
-			}
+		it("returns not_found for an unknown member", async () => {
+			const outcome = await service.deleteMember("nonexistent");
+			expect(outcome).toMatchObject({
+				ok: false,
+				reason: "not_found",
+				retriable: false,
+			});
 		});
 
-		it("subsequent deactivate throws 404 after delete", async () => {
-			const { circleMemberId } = await service.createMember({
+		it("subsequent deactivate returns not_found after delete", async () => {
+			const created = await service.createMember({
 				email: "alice@example.com",
 				name: "Alice",
 				ssoUserId: "user-1",
 				idempotencyKey: "evt_001",
 			});
+			if (!created.ok) throw new Error("expected ok");
+			const { circleMemberId } = created.data;
 
 			await service.deleteMember(circleMemberId);
+			const outcome = await service.deactivateMember(circleMemberId);
 
-			try {
-				await service.deactivateMember(circleMemberId);
-			} catch (error) {
-				expect(error).toBeInstanceOf(CircleApiError);
-				expect((error as CircleApiError).statusCode).toBe(404);
-			}
+			expect(outcome).toMatchObject({
+				ok: false,
+				reason: "not_found",
+				retriable: false,
+			});
 		});
 	});
 
 	describe("getMemberToken", () => {
 		it("returns deterministic mock tokens", async () => {
-			const result = await service.getMemberToken("user-123");
+			const outcome = await service.getMemberToken("user-123");
 
-			expect(result.accessToken).toBe("mock-access-token-user-123");
-			expect(result.refreshToken).toBe("mock-refresh-token-user-123");
+			if (!outcome.ok) throw new Error("expected ok");
+			expect(outcome.data.accessToken).toBe("mock-access-token-user-123");
+			expect(outcome.data.refreshToken).toBe("mock-refresh-token-user-123");
 		});
 	});
 });

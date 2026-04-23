@@ -142,7 +142,10 @@ describe("reconcileCircleMembers", () => {
 		it("provisions members with active Purchase but no circleMemberId", async () => {
 			const member = makeUnprovisionedMember("m1", "u1");
 			mockMemberFindManyUnprovisioned.mockResolvedValue([member]);
-			mockCreateMember.mockResolvedValue({ circleMemberId: "circle-123" });
+			mockCreateMember.mockResolvedValue({
+				ok: true,
+				data: { circleMemberId: "circle-123" },
+			});
 
 			const result = await reconcileCircleMembers(ORG_ID);
 
@@ -174,9 +177,9 @@ describe("reconcileCircleMembers", () => {
 			];
 			mockMemberFindManyUnprovisioned.mockResolvedValue(members);
 			mockCreateMember
-				.mockResolvedValueOnce({ circleMemberId: "c-1" })
-				.mockResolvedValueOnce({ circleMemberId: "c-2" })
-				.mockResolvedValueOnce({ circleMemberId: "c-3" });
+				.mockResolvedValueOnce({ ok: true, data: { circleMemberId: "c-1" } })
+				.mockResolvedValueOnce({ ok: true, data: { circleMemberId: "c-2" } })
+				.mockResolvedValueOnce({ ok: true, data: { circleMemberId: "c-3" } });
 
 			const result = await reconcileCircleMembers(ORG_ID);
 
@@ -188,7 +191,10 @@ describe("reconcileCircleMembers", () => {
 			const member = makeUnprovisionedMember("m1", "u1");
 			member.user.name = null as unknown as string;
 			mockMemberFindManyUnprovisioned.mockResolvedValue([member]);
-			mockCreateMember.mockResolvedValue({ circleMemberId: "c-1" });
+			mockCreateMember.mockResolvedValue({
+				ok: true,
+				data: { circleMemberId: "c-1" },
+			});
 
 			await reconcileCircleMembers(ORG_ID);
 
@@ -202,6 +208,7 @@ describe("reconcileCircleMembers", () => {
 		it("deactivates members with canceled Purchase but circleStatus active", async () => {
 			const member = makeStaleActiveMember("m1", "u1", "circle-456");
 			mockMemberFindManyStale.mockResolvedValue([member]);
+			mockDeactivateMember.mockResolvedValue({ ok: true, data: undefined });
 
 			const result = await reconcileCircleMembers(ORG_ID);
 
@@ -223,6 +230,7 @@ describe("reconcileCircleMembers", () => {
 				makeStaleActiveMember("m2", "u2", "c-2"),
 			];
 			mockMemberFindManyStale.mockResolvedValue(members);
+			mockDeactivateMember.mockResolvedValue({ ok: true, data: undefined });
 
 			const result = await reconcileCircleMembers(ORG_ID);
 
@@ -232,7 +240,7 @@ describe("reconcileCircleMembers", () => {
 	});
 
 	describe("per-member resilience", () => {
-		it("continues provisioning remaining members when one fails", async () => {
+		it("continues provisioning remaining members when one fails (outcome)", async () => {
 			const members = [
 				makeUnprovisionedMember("m1", "u1"),
 				makeUnprovisionedMember("m2", "u2"),
@@ -240,9 +248,14 @@ describe("reconcileCircleMembers", () => {
 			];
 			mockMemberFindManyUnprovisioned.mockResolvedValue(members);
 			mockCreateMember
-				.mockResolvedValueOnce({ circleMemberId: "c-1" })
-				.mockRejectedValueOnce(new Error("Circle API timeout"))
-				.mockResolvedValueOnce({ circleMemberId: "c-3" });
+				.mockResolvedValueOnce({ ok: true, data: { circleMemberId: "c-1" } })
+				.mockResolvedValueOnce({
+					ok: false,
+					reason: "server_error",
+					retriable: true,
+					raw: "timeout",
+				})
+				.mockResolvedValueOnce({ ok: true, data: { circleMemberId: "c-3" } });
 
 			const result = await reconcileCircleMembers(ORG_ID);
 
@@ -251,15 +264,40 @@ describe("reconcileCircleMembers", () => {
 			expect(mockCreateMember).toHaveBeenCalledTimes(3);
 		});
 
-		it("continues deactivating remaining members when one fails", async () => {
+		it("non-retriable provisioning failure marks member provisioning_failed", async () => {
+			const member = makeUnprovisionedMember("m1", "u1");
+			mockMemberFindManyUnprovisioned.mockResolvedValue([member]);
+			mockCreateMember.mockResolvedValueOnce({
+				ok: false,
+				reason: "invalid_input",
+				retriable: false,
+				raw: "bad",
+			});
+
+			const result = await reconcileCircleMembers(ORG_ID);
+
+			expect(result.provisioned).toBe(0);
+			expect(result.errors).toBe(1);
+			expect(mockMemberUpdate).toHaveBeenCalledWith({
+				where: { id: "m1" },
+				data: { circleStatus: "provisioning_failed" },
+			});
+		});
+
+		it("continues deactivating remaining members when one fails (outcome)", async () => {
 			const members = [
 				makeStaleActiveMember("m1", "u1", "c-1"),
 				makeStaleActiveMember("m2", "u2", "c-2"),
 			];
 			mockMemberFindManyStale.mockResolvedValue(members);
 			mockDeactivateMember
-				.mockRejectedValueOnce(new Error("Network error"))
-				.mockResolvedValueOnce(undefined);
+				.mockResolvedValueOnce({
+					ok: false,
+					reason: "network",
+					retriable: true,
+					raw: "flaky",
+				})
+				.mockResolvedValueOnce({ ok: true, data: undefined });
 
 			const result = await reconcileCircleMembers(ORG_ID);
 
@@ -268,10 +306,34 @@ describe("reconcileCircleMembers", () => {
 			expect(mockDeactivateMember).toHaveBeenCalledTimes(2);
 		});
 
+		it("still catches unexpected thrown errors defensively", async () => {
+			// Service methods are now supposed to return outcomes, but we keep
+			// a defensive try/catch in reconciliation so an unexpected throw
+			// (e.g. DB error in the post-success update) doesn't block the loop.
+			const members = [
+				makeStaleActiveMember("m1", "u1", "c-1"),
+				makeStaleActiveMember("m2", "u2", "c-2"),
+			];
+			mockMemberFindManyStale.mockResolvedValue(members);
+			mockDeactivateMember
+				.mockRejectedValueOnce(new Error("Unexpected throw"))
+				.mockResolvedValueOnce({ ok: true, data: undefined });
+
+			const result = await reconcileCircleMembers(ORG_ID);
+
+			expect(result.deactivated).toBe(1);
+			expect(result.errors).toBe(1);
+		});
+
 		it("logs errors with structured context", async () => {
 			const member = makeUnprovisionedMember("m1", "u1");
 			mockMemberFindManyUnprovisioned.mockResolvedValue([member]);
-			mockCreateMember.mockRejectedValue(new Error("Circle 503"));
+			mockCreateMember.mockResolvedValueOnce({
+				ok: false,
+				reason: "server_error",
+				retriable: true,
+				raw: "Circle 503",
+			});
 
 			await reconcileCircleMembers(ORG_ID);
 
@@ -280,7 +342,8 @@ describe("reconcileCircleMembers", () => {
 				expect.objectContaining({
 					userId: "u1",
 					orgId: ORG_ID,
-					error: "Circle 503",
+					reason: "server_error",
+					retriable: true,
 				}),
 			);
 		});
@@ -294,7 +357,11 @@ describe("reconcileCircleMembers", () => {
 			mockMemberFindManyStale.mockResolvedValue([
 				makeStaleActiveMember("m2", "u2", "c-2"),
 			]);
-			mockCreateMember.mockResolvedValue({ circleMemberId: "c-1" });
+			mockCreateMember.mockResolvedValue({
+				ok: true,
+				data: { circleMemberId: "c-1" },
+			});
+			mockDeactivateMember.mockResolvedValue({ ok: true, data: undefined });
 
 			const result = await reconcileCircleMembers(ORG_ID);
 

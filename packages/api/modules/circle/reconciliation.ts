@@ -55,17 +55,37 @@ export async function reconcileCircleMembers(
 
 	for (const member of unprovisionedMembers) {
 		try {
-			const result = await circle.createMember({
+			const outcome = await circle.createMember({
 				email: member.user.email,
 				name: member.user.name ?? member.user.email,
 				ssoUserId: member.userId,
 				idempotencyKey: `reconcile-provision-${member.id}`,
 			});
 
+			if (!outcome.ok) {
+				errors++;
+				logger.error("[Reconciliation] Failed to provision member", {
+					userId: member.userId,
+					orgId: organizationId,
+					reason: outcome.reason,
+					retriable: outcome.retriable,
+				});
+				if (!outcome.retriable) {
+					// Non-retriable failure — mark the member so we don't keep
+					// hammering Circle every cron tick. Drift alerts / manual
+					// ops can surface these.
+					await db.member.update({
+						where: { id: member.id },
+						data: { circleStatus: "provisioning_failed" },
+					});
+				}
+				continue;
+			}
+
 			await db.member.update({
 				where: { id: member.id },
 				data: {
-					circleMemberId: result.circleMemberId,
+					circleMemberId: outcome.data.circleMemberId,
 					circleProvisionedAt: new Date(),
 					circleStatus: "active",
 				},
@@ -75,7 +95,7 @@ export async function reconcileCircleMembers(
 			logger.info("[Reconciliation] Provisioned Circle member", {
 				userId: member.userId,
 				orgId: organizationId,
-				circleMemberId: result.circleMemberId,
+				circleMemberId: outcome.data.circleMemberId,
 			});
 		} catch (error) {
 			errors++;
@@ -110,7 +130,18 @@ export async function reconcileCircleMembers(
 
 	for (const member of staleActiveMembers) {
 		try {
-			await circle.deactivateMember(member.circleMemberId!);
+			const outcome = await circle.deactivateMember(member.circleMemberId!);
+
+			if (!outcome.ok) {
+				errors++;
+				logger.error("[Reconciliation] Failed to deactivate member", {
+					userId: member.userId,
+					orgId: organizationId,
+					reason: outcome.reason,
+					retriable: outcome.retriable,
+				});
+				continue;
+			}
 
 			await db.member.update({
 				where: { id: member.id },
