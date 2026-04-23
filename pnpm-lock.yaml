@@ -340,6 +340,9 @@ importers:
       '@next/third-parties':
         specifier: 'catalog:'
         version: 16.2.2(next@16.2.2(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
+      '@repo/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@repo/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
