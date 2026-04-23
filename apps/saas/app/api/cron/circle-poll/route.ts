@@ -1,7 +1,14 @@
 /**
  * Circle Notification Poller Cron Endpoint
  *
- * Runs every minute via Vercel Cron.
+ * Runs every minute via an authenticated scheduler.
+ *
+ * Temporary deployment note: Vercel Hobby only allows daily cron jobs, so
+ * sub-daily invocation currently comes from an external scheduler
+ * (for now, `cron-job.org`) hitting this route with `CRON_SECRET`.
+ * If the project moves to Vercel Pro, this can go back to a native
+ * Vercel Cron schedule.
+ *
  * Polls Circle for new notifications across all eligible members and
  * fires pushes on mapped triggers.
  *

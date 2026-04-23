@@ -1,7 +1,14 @@
 /**
  * Timeform Ingest Cron Endpoint
  *
- * Runs every 15 minutes via Vercel Cron.
+ * Runs every 15 minutes via an authenticated scheduler.
+ *
+ * Temporary deployment note: Vercel Hobby only allows daily cron jobs, so
+ * sub-daily invocation currently comes from an external scheduler
+ * (for now, `cron-job.org`) hitting this route with `CRON_SECRET`.
+ * If the project moves to Vercel Pro, this can go back to a native
+ * Vercel Cron schedule.
+ *
  * Polls the racing data provider, diffs state against DB,
  * and fires pushes on transitions.
  *
