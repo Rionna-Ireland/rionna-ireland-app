@@ -12,14 +12,18 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("@repo/logs", () => ({
-	logger: {
+const { mockLogger } = vi.hoisted(() => ({
+	mockLogger: {
 		info: vi.fn(),
 		warn: vi.fn(),
 		error: vi.fn(),
 		debug: vi.fn(),
 		log: vi.fn(),
 	},
+}));
+
+vi.mock("@repo/logs", () => ({
+	logger: mockLogger,
 }));
 
 // Mock the Headless SDK since the constructor instantiates it.
@@ -51,6 +55,11 @@ describe("RealCircleService.getMemberNotifications", () => {
 	beforeEach(() => {
 		svc = makeService();
 		vi.stubGlobal("fetch", vi.fn());
+		mockLogger.info.mockClear();
+		mockLogger.warn.mockClear();
+		mockLogger.error.mockClear();
+		mockLogger.debug.mockClear();
+		mockLogger.log.mockClear();
 		// Default: token mint succeeds.
 		vi.spyOn(svc, "getMemberToken").mockResolvedValue({
 			accessToken: "jwt-for-member",
@@ -203,7 +212,7 @@ describe("RealCircleService.getMemberNotifications", () => {
 		expect(calledUrl).toContain("per_page=10");
 	});
 
-	it("returns auth outcome when getMemberToken throws; notifications fetch not called", async () => {
+	it("token mint throw → server_error (notifications fetch not called)", async () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal("fetch", fetchMock);
 		vi.spyOn(svc, "getMemberToken").mockRejectedValueOnce(
@@ -214,8 +223,81 @@ describe("RealCircleService.getMemberNotifications", () => {
 			sinceNotificationId: null,
 		});
 
-		expect(outcome).toMatchObject({ ok: false, reason: "auth", retriable: true });
+		expect(outcome).toMatchObject({
+			ok: false,
+			reason: "server_error",
+			retriable: true,
+		});
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("drops records with missing id; other records in the same page pass through", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{
+						id: 100,
+						notification_type: "post_created",
+						created_at: "t1",
+						subject: { type: "post", id: 1 },
+						text: "keep",
+					},
+					{
+						// no id
+						notification_type: "post_created",
+						created_at: "t2",
+						subject: { type: "post", id: 2 },
+						text: "drop",
+					},
+					{
+						id: 101,
+						notification_type: "post_created",
+						created_at: "t3",
+						subject: { type: "post", id: 3 },
+						text: "keep",
+					},
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		if (!outcome.ok) throw new Error("expected ok");
+		expect(outcome.data.items).toHaveLength(2);
+		expect(outcome.data.items.map((i) => i.id)).toEqual(["100", "101"]);
+		expect(outcome.data.nextCursor).toBe("101");
+		expect(mockLogger.error).toHaveBeenCalledWith(
+			expect.stringContaining("Dropping notification with missing id"),
+			expect.any(Object),
+		);
+	});
+
+	it("sorts items by id ascending when server returns them out of order", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{ id: 102, notification_type: "post_created", created_at: "t3", subject: { type: "post", id: 3 }, text: "" },
+					{ id: 101, notification_type: "post_created", created_at: "t2", subject: { type: "post", id: 2 }, text: "" },
+					{ id: 100, notification_type: "post_created", created_at: "t1", subject: { type: "post", id: 1 }, text: "" },
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		if (!outcome.ok) throw new Error("expected ok");
+		expect(outcome.data.items.map((i) => i.id)).toEqual(["100", "101", "102"]);
+		expect(outcome.data.nextCursor).toBe("102");
+		expect(mockLogger.warn).toHaveBeenCalledWith(
+			expect.stringContaining("out of order"),
+			expect.any(Object),
+		);
 	});
 
 	it("sets nextCursor to last item id (oldest→newest assumption)", async () => {

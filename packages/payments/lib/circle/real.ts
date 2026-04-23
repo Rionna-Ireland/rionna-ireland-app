@@ -47,15 +47,40 @@ export function classifyStatus(
 }
 
 /**
+ * Compare two numeric-as-string ids. Uses BigInt for large ids; falls back
+ * to lexicographic compare if either id isn't a valid BigInt.
+ */
+function compareIds(a: string, b: string): number {
+	try {
+		const zero = BigInt(0);
+		const d = BigInt(a) - BigInt(b);
+		return d < zero ? -1 : d > zero ? 1 : 0;
+	} catch {
+		return a < b ? -1 : a > b ? 1 : 0;
+	}
+}
+
+/**
  * Map Circle's Headless notifications wire JSON to our CircleNotification.
  *
  * Circle's exact notification_type values aren't fully documented from our
  * side; the table below captures our best-guess mappings from public docs
  * and web UI spelunking. Unknown types fall back to "post" and are logged
  * so T18 manual QA can surface the actual strings Circle emits.
+ *
+ * Returns null when the record is missing an `id` — such records would
+ * corrupt the cursor (`id: "undefined"` becomes the next `after_id`), so
+ * they must be dropped rather than normalised.
  */
-function normaliseCircleNotification(record: unknown): CircleNotification {
+function normaliseCircleNotification(record: unknown): CircleNotification | null {
 	const r = (record ?? {}) as Record<string, unknown>;
+
+	if (r?.id == null) {
+		logger.error("[RealCircle] Dropping notification with missing id", {
+			record: r,
+		});
+		return null;
+	}
 
 	const typeMap: Record<string, CircleNotificationType> = {
 		post_created: "post",
@@ -71,30 +96,29 @@ function normaliseCircleNotification(record: unknown): CircleNotification {
 	const rawType = String(r.notification_type ?? r.type ?? "");
 	const type: CircleNotificationType = typeMap[rawType] ?? "post";
 	if (!typeMap[rawType]) {
-		logger.warn("[Circle] Unknown notification_type; falling back to 'post'", {
+		logger.warn("[RealCircle] Unknown notification_type; falling back to 'post'", {
 			rawType,
-			id: r.id,
+			notificationId: String(r.id),
 		});
 	}
 
 	const subj = (r.subject ?? {}) as Record<string, unknown>;
 	const rawSubjectKind = String(subj.type ?? subj.kind ?? "");
-	const subjectKind: CircleNotificationSubject["kind"] = (() => {
-		switch (rawSubjectKind) {
-			case "post":
-				return "post";
-			case "comment":
-				return "comment";
-			case "dm":
-				return "dm";
-			case "event":
-				return "event";
-			case "member":
-				return "member";
-			default:
-				return "post";
-		}
-	})();
+	const knownSubjectKinds: Record<string, CircleNotificationSubject["kind"]> = {
+		post: "post",
+		comment: "comment",
+		dm: "dm",
+		event: "event",
+		member: "member",
+	};
+	const subjectKind: CircleNotificationSubject["kind"] =
+		knownSubjectKinds[rawSubjectKind] ?? "post";
+	if (!knownSubjectKinds[rawSubjectKind]) {
+		logger.warn("[RealCircle] Unknown subject kind; defaulting to 'post'", {
+			rawKind: subj?.type ?? subj?.kind ?? "(none)",
+			notificationId: String(r.id ?? "(unknown)"),
+		});
+	}
 
 	const actor = r.actor as { id?: unknown; name?: unknown } | null | undefined;
 
@@ -294,10 +318,14 @@ export class RealCircleService implements CircleService {
 				circleMemberId,
 				error: err instanceof Error ? err.message : String(err),
 			});
-			return { ok: false, reason: "auth", retriable: true, raw: err };
+			// TODO(T7): getMemberToken refactor will let us classify token-mint failures properly (auth vs network vs rate-limited). Until then, default to server_error so transient failures retry without firing misleading auth alerts.
+			return { ok: false, reason: "server_error", retriable: true, raw: err };
 		}
 
 		const url = new URL(`${CIRCLE_HEADLESS_BASE}/notifications`);
+		// TODO(T18): verify Circle Headless accepts `after_id` + `per_page` as the
+		// pagination param names. If not, the poller will silently re-fetch the
+		// full first page every tick. Alternatives to try: since_id, starting_after, limit, page_size.
 		if (opts.sinceNotificationId) {
 			url.searchParams.set("after_id", opts.sinceNotificationId);
 		}
@@ -343,10 +371,22 @@ export class RealCircleService implements CircleService {
 
 		const records = (body as { records?: unknown })?.records;
 		const items = Array.isArray(records)
-			? records.map(normaliseCircleNotification)
+			? records
+					.map(normaliseCircleNotification)
+					.filter((n): n is CircleNotification => n !== null)
 			: [];
-		const nextCursor = items.length > 0 ? items[items.length - 1]!.id : null;
 
-		return { ok: true, data: { items, nextCursor } };
+		// T2 contract: items oldest→newest with monotonically orderable ids.
+		// Defensively sort to protect against Circle returning newest→oldest.
+		const sortedItems = [...items].sort((a, b) => compareIds(a.id, b.id));
+		if (items.some((n, i) => n.id !== sortedItems[i]!.id)) {
+			logger.warn("[RealCircle] Notifications returned out of order; sorted defensively", {
+				count: items.length,
+			});
+		}
+		const nextCursor =
+			sortedItems.length > 0 ? sortedItems[sortedItems.length - 1]!.id : null;
+
+		return { ok: true, data: { items: sortedItems, nextCursor } };
 	}
 }
