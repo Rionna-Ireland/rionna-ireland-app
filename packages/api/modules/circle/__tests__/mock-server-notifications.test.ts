@@ -217,6 +217,8 @@ describe("MockServerCircleService.getMemberNotifications", () => {
 						created_at: "2026-04-23T14:04:44.459Z",
 						action: "add",
 						notifiable_id: 31953658,
+						space_title: "Test Horse",
+						display_action: "posted",
 						space_id: 2598628,
 						actor_name: "Tom Power",
 						notifiable_title: "Wow I love horses!",
@@ -241,12 +243,65 @@ describe("MockServerCircleService.getMemberNotifications", () => {
 		expect(outcome.data.items[0]).toMatchObject({
 			id: "38119497817",
 			type: "post",
+			spaceTitle: "Test Horse",
+			displayAction: "posted",
 			subject: {
 				kind: "post",
 				id: "31953658",
 				spaceId: "2598628",
+				title: "Wow I love horses!",
 			},
 			text: "Wow I love horses!",
+		});
+	});
+
+	it("normalises comment actions as comment notifications", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{
+						id: 38122882518,
+						created_at: "2026-04-23T15:30:21.004Z",
+						action: "comment",
+						notifiable_id: 101784330,
+						space_title: "Test Horse",
+						display_action: "commented on your post:",
+						space_id: 2598628,
+						actor_name: "Tom Power",
+						notifiable_title: "Lol",
+						notifiable_type: "Comment",
+						action_web_url: "https://community.rionna-e53dba.club/c/test-horse/lol#comment_wrapper_101784330",
+						notifiable: {
+							id: 101784330,
+							post_id: 31957125,
+							parent_comment_id: null,
+							community_id: 517885,
+							space_id: 2598628,
+						},
+					},
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		expect(outcome.ok).toBe(true);
+		if (!outcome.ok) return;
+		expect(outcome.data.items[0]).toMatchObject({
+			id: "38122882518",
+			type: "comment",
+			spaceTitle: "Test Horse",
+			displayAction: "commented on your post:",
+			subject: {
+				kind: "comment",
+				id: "101784330",
+				spaceId: "2598628",
+				title: "Lol",
+			},
+			text: "Lol",
 		});
 	});
 

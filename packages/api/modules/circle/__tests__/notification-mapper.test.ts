@@ -7,6 +7,7 @@ function ctx(overrides: Partial<MapCtx> = {}): MapCtx
     return {
         organizationId : "org-1",
         communityDomain : "community.rionna-e53dba.club",
+        trainerUpdatesSpaceId : "trainer-space",
         horseBySpace : (sid) =>
           sid === "12" ? { id : "h-1", name : "Thunderbolt" } : null,
         ...overrides,
@@ -23,21 +24,28 @@ function noti(partial: Partial<CircleNotification>): CircleNotification
                                    : { id : "a", name : "Alice" },
         subject :
           partial.subject ?? { kind : "post", id : "5", url : "https://c/p/5" },
+        spaceTitle : partial.spaceTitle,
+        displayAction : partial.displayAction,
         text : partial.text ?? "some text",
     };
 }
 
 describe("mapCircleNotification", () => {
-    it("mention → CIRCLE_MENTION push", () => {
+    it("mention → CIRCLE_MENTION push with actor/display-action title", () => {
         const out = mapCircleNotification(
-          noti({ type : "mention", text : "Alice mentioned you" }),
+          noti({
+              type : "mention",
+              text : "TEST",
+              displayAction : "mentioned you in a comment on:",
+              subject : { kind : "comment", id : "5", url : "https://c/p/5" },
+          }),
           ctx(),
         );
         expect(out).toMatchObject({
             triggerType : "CIRCLE_MENTION",
             prefKey : "circleMention",
-            title : "You were mentioned",
-            body : "Alice mentioned you",
+            title : "Alice mentioned you in a comment on",
+            body : "TEST",
         });
         expect(out?.data).toMatchObject({
             screen : "community",
@@ -45,42 +53,70 @@ describe("mapCircleNotification", () => {
         });
     });
 
-    it("comment → CIRCLE_REPLY push", () => {
+    it("comment → CIRCLE_REPLY push with display-action title", () => {
         const out = mapCircleNotification(
-          noti({ type : "comment", text : "Alice replied" }),
+          noti({
+              type : "comment",
+              text : "I agree",
+              displayAction : "commented on your post:",
+              subject : { kind : "comment", id : "5", url : "https://c/p/5" },
+          }),
           ctx(),
         );
-        expect(out?.triggerType).toBe("CIRCLE_REPLY");
-        expect(out?.prefKey).toBe("circleReply");
+        expect(out).toMatchObject({
+            triggerType : "CIRCLE_REPLY",
+            prefKey : "circleReply",
+            title : "Alice commented on your post",
+            body : "I agree",
+        });
     });
 
-    it("reaction → CIRCLE_REACTION push", () => {
-        const out = mapCircleNotification(noti({ type : "reaction" }), ctx());
-        expect(out?.triggerType).toBe("CIRCLE_REACTION");
+    it("reaction → CIRCLE_REACTION push with display-action title", () => {
+        const out = mapCircleNotification(
+          noti({
+              type : "reaction",
+              text : "Wow I love horses!",
+              displayAction : "liked your post:",
+              subject : { kind : "comment", id : "5", url : "https://c/p/5" },
+          }),
+          ctx(),
+        );
+        expect(out).toMatchObject({
+            triggerType : "CIRCLE_REACTION",
+            title : "Alice liked your post",
+            body : "Wow I love horses!",
+        });
     });
 
-    it("dm → CIRCLE_DM push with actor name in title", () => {
+    it("dm → CIRCLE_DM push with actor-aware title", () => {
         const out = mapCircleNotification(
           noti(
             { type : "dm", actor : { id : "a", name : "Alice" }, text : "hi" }),
           ctx(),
         );
-        expect(out?.title).toBe("Message from Alice");
-        expect(out?.triggerType).toBe("CIRCLE_DM");
+        expect(out).toMatchObject({
+            triggerType : "CIRCLE_DM",
+            title : "Alice sent you a message",
+            body : "hi",
+        });
     });
 
-    it("dm with no actor → generic title", () => {
+    it("dm with no actor → generic title and fallback body", () => {
         const out = mapCircleNotification(
-          noti({ type : "dm", actor : null, text : "hi" }),
+          noti({ type : "dm", actor : null, text : "   " }),
           ctx(),
         );
-        expect(out?.title).toBe("New message");
+        expect(out).toMatchObject({
+            title : "New message in Circle",
+            body : "Open your messages in Circle.",
+        });
     });
 
-    it("post in horse space → CIRCLE_HORSE_DISCUSSION with horse name", () => {
+    it("post in horse space → CIRCLE_HORSE_DISCUSSION with horse-context copy", () => {
         const out = mapCircleNotification(
           noti({
               type : "post",
+              text : "Fresh training notes",
               subject : {
                   kind : "post",
                   id : "9",
@@ -91,13 +127,41 @@ describe("mapCircleNotification", () => {
           ctx(),
         );
         expect(out?.triggerType).toBe("CIRCLE_HORSE_DISCUSSION");
-        expect(out?.title).toBe("New in Thunderbolt's space");
+        expect(out).toMatchObject({
+            title : "Alice posted in Thunderbolt's space",
+            body : "Fresh training notes",
+        });
     });
 
-    it("post in non-horse space → TRAINER_POST fallback", () => {
+    it("trainer-updates space post → TRAINER_POST trainer copy", () => {
         const out = mapCircleNotification(
           noti({
               type : "post",
+              text : "Stable update",
+              spaceTitle : "Trainer Updates",
+              subject : {
+                  kind : "post",
+                  id : "9",
+                  spaceId : "trainer-space",
+                  url : "https://c/p/9",
+              },
+          }),
+          ctx(),
+        );
+        expect(out).toMatchObject({
+            triggerType : "TRAINER_POST",
+            title : "Alice posted a trainer update",
+            body : "Stable update",
+        });
+    });
+
+    it("non-horse non-trainer post → TRAINER_POST bucket but generic space-aware copy", () => {
+        const out = mapCircleNotification(
+          noti({
+              type : "post",
+              text : "Stable update",
+              displayAction : "posted",
+              spaceTitle : "News",
               subject : {
                   kind : "post",
                   id : "9",
@@ -107,19 +171,28 @@ describe("mapCircleNotification", () => {
           }),
           ctx(),
         );
-        expect(out?.triggerType).toBe("TRAINER_POST");
-        expect(out?.title).toBe("New trainer update");
+        expect(out).toMatchObject({
+            triggerType : "TRAINER_POST",
+            title : "Alice posted in News",
+            body : "Stable update",
+        });
     });
 
-    it("post with no spaceId → TRAINER_POST fallback", () => {
+    it("post with no spaceId → TRAINER_POST fallback body when text missing", () => {
         const out = mapCircleNotification(
           noti({
               type : "post",
+              actor : null,
+              text : "   ",
               subject : { kind : "post", id : "9", url : "https://c/p/9" },
           }),
           ctx(),
         );
-        expect(out?.triggerType).toBe("TRAINER_POST");
+        expect(out).toMatchObject({
+            triggerType : "TRAINER_POST",
+            title : "New post in Circle",
+            body : "Open the latest post in Circle.",
+        });
     });
 
     it("event_reminder → null (deferred to V2)", () => {
@@ -142,5 +215,21 @@ describe("mapCircleNotification", () => {
           ctx(),
         );
         expect(out?.data).toEqual({ screen : "community" });
+    });
+
+    it("trims actor and body copy before mapping", () => {
+        const out = mapCircleNotification(
+          noti({
+              type : "mention",
+              actor : { id : "a", name : "  Alice   " },
+              text : "  Big update   incoming  ",
+              subject : { kind : "post", id : "5", url : "https://c/p/5" },
+          }),
+          ctx(),
+        );
+        expect(out).toMatchObject({
+            title : "You were mentioned",
+            body : "Big update incoming",
+        });
     });
 });

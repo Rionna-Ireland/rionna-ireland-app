@@ -46,6 +46,7 @@ export interface CircleNotificationSubject {
 	kind: "post" | "comment" | "dm" | "event" | "member";
 	id: string;
 	spaceId?: string;
+	title?: string;
 	/** Circle-side URL for deep-linking into the WebView. */
 	url?: string;
 }
@@ -77,6 +78,8 @@ export interface CircleNotification {
 	createdAt: string;
 	actor: { id: string; name: string } | null;
 	subject: CircleNotificationSubject;
+	spaceTitle?: string;
+	displayAction?: string;
 	/** Short preview used as push body. */
 	text: string;
 }

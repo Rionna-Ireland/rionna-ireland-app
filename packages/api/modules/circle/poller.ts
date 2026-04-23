@@ -86,6 +86,7 @@ interface OrgPollConfig {
 	slug: string;
 	circleService: CircleService;
 	communityDomain: string | undefined;
+	trainerUpdatesSpaceId?: string;
 	cadenceMinutes: number;
 	enabledCategories: CircleNotificationCategory[];
 	horseBySpace: (spaceId: string) => { id: string; name: string } | null;
@@ -321,6 +322,7 @@ async function tryFanOut(
 	const ctx: MapCtx = {
 		organizationId: org.id,
 		communityDomain: org.communityDomain,
+		trainerUpdatesSpaceId: org.trainerUpdatesSpaceId,
 		horseBySpace: org.horseBySpace,
 	};
 
@@ -480,6 +482,7 @@ export async function runCirclePollTick(
 			slug: org.slug,
 			circleService,
 			communityDomain: metadata.circle?.communityDomain,
+			trainerUpdatesSpaceId: metadata.circle?.trainerUpdatesSpaceId,
 			cadenceMinutes,
 			enabledCategories,
 			horseBySpace: (spaceId: string) => horseBySpaceMap.get(spaceId) ?? null,

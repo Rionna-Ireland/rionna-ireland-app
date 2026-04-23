@@ -608,7 +608,7 @@ describe("runCirclePollTick", () => {
 		expect(mockSendPush).toHaveBeenCalledWith(
 			expect.objectContaining({
 				triggerType: "CIRCLE_HORSE_DISCUSSION",
-				title: "New in Thunderbolt's space",
+				title: "Alice posted in Thunderbolt's space",
 			}),
 		);
 	});
