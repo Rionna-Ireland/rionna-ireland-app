@@ -625,9 +625,9 @@ describe("runCirclePollTick", () => {
 		// The filter uses the correct `lastSeenAt` column name (not lastUsedAt).
 		expect(args.where.user.pushTokens.some.lastSeenAt).toBeDefined();
 		expect(args.where.user.pushTokens.some.lastSeenAt.gte).toBeInstanceOf(Date);
-		// 14-day horizon from NOW.
+		// 30-day horizon from NOW.
 		const gte: Date = args.where.user.pushTokens.some.lastSeenAt.gte;
-		const expected = NOW.getTime() - 14 * 24 * 60 * 60 * 1000;
+		const expected = NOW.getTime() - 30 * 24 * 60 * 60 * 1000;
 		expect(Math.abs(gte.getTime() - expected)).toBeLessThan(1000);
 	});
 });

@@ -41,7 +41,7 @@ import { pollShard } from "./poll-shard";
 const DORMANT_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const DEFAULT_CADENCE_MINUTES = 5;
 const DEFAULT_CONCURRENCY = 4;
-const FRESH_TOKEN_THRESHOLD_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const FRESH_TOKEN_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export interface PollTickMetrics {
 	organizationsScanned: number;
