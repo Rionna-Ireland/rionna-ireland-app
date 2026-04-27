@@ -16,6 +16,36 @@ function textValue(value: unknown): string | null {
 		: null;
 }
 
+function cleanTextValue(value: unknown): string | null {
+	const text = textValue(value);
+	if (!text) return null;
+
+	const stripped = text
+		.replace(/<\s*br\s*\/?>/gi, " ")
+		.replace(/<\s*\/?(div|p|li|ul|ol|strong|em|span|h[1-6])[^>]*>/gi, " ")
+		.replace(/<[^>]+>/g, " ")
+		.replace(/&nbsp;/gi, " ")
+		.replace(/&amp;/gi, "&")
+		.replace(/&lt;/gi, "<")
+		.replace(/&gt;/gi, ">")
+		.replace(/&quot;/gi, "\"")
+		.replace(/&#39;/gi, "'")
+		.replace(/\s+/g, " ")
+		.trim();
+
+	if (!stripped) return null;
+
+	const normalized = stripped.toLowerCase();
+	if (
+		normalized === "update available please update the app to view this post."
+		|| normalized === "update available please update the app to view this post"
+	) {
+		return null;
+	}
+
+	return stripped;
+}
+
 function objectValue(value: unknown): Record<string, unknown> | null {
 	return value && typeof value === "object" && !Array.isArray(value)
 		? value as Record<string, unknown>
@@ -47,24 +77,70 @@ function extractPosts(payload: unknown): Array<Record<string, unknown>> {
 	);
 }
 
+function extractTiptapText(value: unknown): string | null {
+	const node = objectValue(value);
+	if (!node) return null;
+
+	const nodeText =
+		cleanTextValue(node.text)
+		?? cleanTextValue(node.circle_ios_fallback_text);
+	const children = Array.isArray(node.content)
+		? node.content.map(extractTiptapText).filter(Boolean).join(" ")
+		: null;
+
+	return cleanTextValue([nodeText, children].filter(Boolean).join(" "));
+}
+
 function extractPostText(post: Record<string, unknown>): string | null {
 	const body = objectValue(post.body);
 	const tiptapBody = objectValue(post.tiptap_body);
+	const tiptapDocument = objectValue(tiptapBody?.body);
 	return (
-		textValue(body?.plain_text_body)
-		?? textValue(body?.body)
-		?? textValue(body?.text)
-		?? textValue(body?.html)
-		?? textValue(tiptapBody?.plain_text_body)
-		?? textValue(tiptapBody?.text)
-		?? textValue(post.plain_text_body)
-		?? textValue(post.body_plain_text)
-		?? textValue(post.body_plain_text_without_attachments)
-		?? textValue(post.body_text)
-		?? textValue(post.description)
-		?? textValue(post.excerpt)
-		?? textValue(post.name)
-		?? textValue(post.title)
+		cleanTextValue(post.body_plain_text_without_attachments)
+		?? cleanTextValue(post.body_plain_text)
+		?? cleanTextValue(tiptapBody?.circle_ios_fallback_text)
+		?? extractTiptapText(tiptapDocument)
+		?? cleanTextValue(tiptapBody?.plain_text_body)
+		?? cleanTextValue(tiptapBody?.text)
+		?? cleanTextValue(body?.plain_text_body)
+		?? cleanTextValue(post.body_text)
+		?? cleanTextValue(post.description)
+		?? cleanTextValue(post.excerpt)
+		?? cleanTextValue(body?.body)
+		?? cleanTextValue(body?.text)
+		?? cleanTextValue(body?.html)
+		?? cleanTextValue(post.name)
+		?? cleanTextValue(post.title)
+	);
+}
+
+function extractImageUrlFromHtml(value: unknown): string | null {
+	const html = textValue(value);
+	if (!html) return null;
+
+	return textValue(html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]);
+}
+
+function extractPostImageUrl(post: Record<string, unknown>): string | null {
+	const body = objectValue(post.body);
+	const tiptapBody = objectValue(post.tiptap_body);
+	const inlineAttachments = Array.isArray(tiptapBody?.inline_attachments)
+		? tiptapBody.inline_attachments
+		: [];
+	const firstInlineImage = inlineAttachments.find((attachment) => {
+		const item = objectValue(attachment);
+		return textValue(item?.url) && textValue(item?.content_type)?.startsWith("image/");
+	});
+	const firstInlineImageUrl = textValue(objectValue(firstInlineImage)?.url);
+
+	return (
+		textValue(post.cardview_image)
+		?? textValue(post.cardview_image_url)
+		?? textValue(post.cardview_thumbnail_url)
+		?? textValue(post.cover_image_url)
+		?? firstInlineImageUrl
+		?? extractImageUrlFromHtml(body?.body)
+		?? extractImageUrlFromHtml(body?.html)
 	);
 }
 
@@ -240,6 +316,7 @@ export const getFeed = protectedProcedure
 				authorName: extractAuthorName(post),
 				commentCount: numberValue(post.comment_count ?? post.comments_count ?? post.commentsCount),
 				likeCount: numberValue(post.user_likes_count ?? post.likes_count ?? post.likesCount ?? post.like_count),
+				imageUrl: extractPostImageUrl(post),
 				kind: classifyFeedItem(post, spaceName),
 				url:
 					textValue(post.url)
