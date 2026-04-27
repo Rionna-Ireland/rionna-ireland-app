@@ -90,12 +90,24 @@ export function normaliseCircleNotification(
 		message: "dm",
 		dm: "dm",
 		direct_message: "dm",
+		new_message: "dm",
+		send_message: "dm",
+		sent_message: "dm",
+		chat_message: "dm",
+		chat_room_message: "dm",
 	};
 
 	const knownSubjectKinds: Record<string, CircleNotificationSubject["kind"]> = {
 		post: "post",
 		comment: "comment",
 		dm: "dm",
+		chat: "dm",
+		chatroom: "dm",
+		chat_room: "dm",
+		chatroommessage: "dm",
+		chat_room_message: "dm",
+		chatthread: "dm",
+		chat_thread: "dm",
 		event: "event",
 		member: "member",
 		conversation: "dm",
@@ -116,7 +128,14 @@ export function normaliseCircleNotification(
 
 	if (type === null) {
 		if (rawAction === "add") {
-			type = subjectKind === "comment" ? "comment" : "post";
+			type =
+				subjectKind === "comment"
+					? "comment"
+					: subjectKind === "dm"
+						? "dm"
+						: "post";
+		} else if (subjectKind === "dm") {
+			type = "dm";
 		} else if (subjectKind === "event") {
 			type = "event_reminder";
 		} else if (subjectKind === "member") {
@@ -179,7 +198,7 @@ export function normaliseCircleNotification(
 				: null,
 		subject: {
 			kind: subjectKind,
-			id: String(notifiable.id ?? r.notifiable_id ?? ""),
+			id: String(notifiable.id ?? notifiable.uuid ?? r.notifiable_id ?? r.uuid ?? ""),
 			spaceId:
 				notifiable.space_id != null
 					? String(notifiable.space_id)

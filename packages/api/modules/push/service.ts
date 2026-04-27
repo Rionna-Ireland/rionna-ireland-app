@@ -29,6 +29,8 @@ export interface PushRequest {
 	title: string;
 	body: string;
 	data?: Record<string, string>;
+	/** iOS app-icon badge count. Defaults to 1 so background pushes show a badge. */
+	badge?: number;
 	/** If set, only push to this user. Otherwise, push to all org members with relevant prefs. */
 	targetUserId?: string;
 }
@@ -52,6 +54,7 @@ async function reservePush(
 		title: request.title,
 		body: request.body,
 		data: request.data,
+		badge: request.badge ?? 1,
 		sound: "default" as const,
 	};
 

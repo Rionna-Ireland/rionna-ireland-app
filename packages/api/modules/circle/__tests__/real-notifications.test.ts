@@ -163,6 +163,49 @@ describe("RealCircleService.getMemberNotifications", () => {
 		});
 	});
 
+	it("normalises chat-room message records as direct messages", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockFetchJson(200, {
+				records: [
+					{
+						id: 38130000001,
+						created_at: "2026-04-24T10:00:00.000Z",
+						action: "add",
+						notifiable_id: 9001,
+						notifiable_type: "ChatRoomMessage",
+						actor_name: "Alice",
+						notifiable_title: "Can you see this?",
+						action_web_url:
+							"https://community.rionna-e53dba.club/messages/room-uuid?message_id=9001",
+						notifiable: {
+							uuid: "room-uuid",
+							id: 9001,
+						},
+					},
+				],
+			}),
+		);
+
+		const outcome = await svc.getMemberNotifications("42", {
+			sinceNotificationId: null,
+		});
+
+		expect(outcome.ok).toBe(true);
+		if (!outcome.ok) return;
+		expect(outcome.data.items[0]).toMatchObject({
+			id: "38130000001",
+			type: "dm",
+			actor: { id: "Alice", name: "Alice" },
+			subject: {
+				kind: "dm",
+				id: "9001",
+				url: "https://community.rionna-e53dba.club/messages/room-uuid?message_id=9001",
+			},
+			text: "Can you see this?",
+		});
+	});
+
 	it("normalises the real live Circle action/notifiable payload for reactions", async () => {
 		vi.stubGlobal(
 			"fetch",
